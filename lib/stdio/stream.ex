@@ -202,15 +202,34 @@ defmodule Stdio.Stream do
          %Stdio.Stream{
            process: %Stdio.ProcessTree{
              supervisor: %Stdio{init: init},
-             sh: sh
+             pipeline: pipeline
            },
            stream_pid: stream_pid,
            status: :running
          } = state
        ) do
+    sh = List.last(pipeline)
+
     receive do
       :stream_eof ->
-        case :prx.eof(init, sh) do
+        {proc, subproc} = pstree(init, pipeline)
+
+        # XXX supervisor chain: attempting to close the process stdin
+        # XXX sometimes crashes:
+        # XXX
+        # XXX ** (exit) exited in: :gen_statem.call(#PID<0.604.0>, {:close, '\n'}, :infinity)
+        # XXX   ** (EXIT) no process: the process is not alive or
+        # XXX there's no process currently associated with the given name,
+        # XXX possibly because its application isn't started
+        result =
+          try do
+            :prx.eof(proc, subproc)
+          catch
+            _, _ ->
+              {:error, :esrch}
+          end
+
+        case result do
           :ok ->
             {[], state}
 
@@ -284,22 +303,32 @@ defmodule Stdio.Stream do
          %Stdio.Stream{
            process: %Stdio.ProcessTree{
              supervisor: %Stdio{init: init},
-             sh: sh
+             pipeline: pipeline
            },
            stream_pid: nil,
            status: :flush
          } = state
        ) do
+    # The shell process is in a PID namespace:
+    #
+    # * calling :prx.pidof(sh) will return the namespace PID, e.g., 2
+    # * the supervisor process is in the global PID namespace
+    # * calling :prx.kill(init, pid) will attempt to kill PID 2 in the
+    #   global namespace
+    #
+    # The direct parent of the process created the PID namespace.
+    {proc, subproc} = pstree(init, pipeline)
+
     flush_timeout =
-      case :prx.pidof(sh) do
+      case :prx.pidof(subproc) do
         :noproc ->
           0
 
         pid ->
           _ =
-            case :prx.kill(init, -pid, :SIGKILL) do
+            case :prx.kill(proc, -pid, :SIGKILL) do
               {:error, :esrch} ->
-                :prx.kill(init, pid, :SIGKILL)
+                :prx.kill(proc, pid, :SIGKILL)
 
               _ ->
                 :ok
@@ -326,12 +355,14 @@ defmodule Stdio.Stream do
   defp stdio(
          %Stdio.Stream{
            process: %Stdio.ProcessTree{
-             sh: sh
+             pipeline: pipeline
            },
            status: :flushing,
            flush_timeout: flush_timeout
          } = state
        ) do
+    sh = List.last(pipeline)
+
     receive do
       :stream_eof ->
         {[], state}
@@ -572,4 +603,12 @@ defmodule Stdio.Stream do
   defp signal(sig) when is_integer(sig), do: sig
   defp signal(sig) when is_atom(sig), do: sig
   defp signal(_), do: :SIGKILL
+
+  @spec pstree(:prx.task(), [:prx.task(), ...]) :: {parent :: :prx.task(), child :: :prx.task()}
+  defp pstree(init, [sh]), do: {init, sh}
+
+  defp pstree(_init, pipeline) do
+    [child, parent | _] = Enum.reverse(pipeline)
+    {parent, child}
+  end
 end

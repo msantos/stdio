@@ -7,7 +7,7 @@ defmodule Stdio do
             :shutdown
             | :noshutdown
             | :noreap
-            | (init :: :prx.task(), sh :: :prx.task(), map() -> any),
+            | (init :: :prx.task(), pipeline :: [:prx.task()], map() -> any),
           state: map()
         }
 
@@ -15,11 +15,11 @@ defmodule Stdio do
     @moduledoc ~S"""
     System process supervisor tree.
     """
-    defstruct supervisor: %Stdio{}, sh: :noproc
+    defstruct supervisor: %Stdio{}, pipeline: []
 
     @type t :: %__MODULE__{
             supervisor: Stdio.t(),
-            sh: :prx.task() | :noproc
+            pipeline: [:prx.task()]
           }
   end
 
@@ -470,11 +470,13 @@ defmodule Stdio do
       ...> |> Stdio.pipe!("grep --line-buffered 442")
       ...> |> Enum.to_list()
       [stdout: "442\n", exit_status: 0]
+
       iex> Stdio.stream!("echo test; kill $$")
       iex> |> Stream.transform(<<>>, &Stdio.Stream.stdout_to_stderr/2)
       iex> |> Stdio.pipe!("sed -u 's/t/_/g'")
       iex> |> Enum.to_list()
       [stdout: "_es_\n", exit_status: 0]
+
       iex> [<<>>, <<"a">>, <<>>] |> Stdio.pipe!("cat") |> Enum.to_list()
       [stdout: "a", exit_status: 0]
 
@@ -592,7 +594,7 @@ defmodule Stdio do
     end
   end
 
-  def __fork__(%Stdio{init: init} = supervisor, command, config, opsfun, initfun, onerrorfun) do
+  def __fork__(%Stdio{} = supervisor, command, config, opsfun, initfun, onerrorfun) do
     environ = Keyword.get(config, :environ, @environ)
 
     fstab =
@@ -603,10 +605,7 @@ defmodule Stdio do
 
     result =
       try do
-        :prx.task(init, opsfun.(config), [], [
-          {:init, initfun.(config)},
-          {:terminate, onerrorfun.(config)}
-        ])
+        Stdio.Op.task(supervisor, opsfun.(config), initfun.(config), onerrorfun.(config))
       catch
         :error, {:badop, {_mod, _fun, _arg} = op, ops, error} ->
           raise Stdio.OpError,
@@ -617,7 +616,8 @@ defmodule Stdio do
       end
 
     case result do
-      {:ok, sh} ->
+      {:ok, pipeline} ->
+        sh = List.last(pipeline)
         {arg0, argv} = argv(command)
 
         errno =
@@ -633,7 +633,7 @@ defmodule Stdio do
             {:ok,
              %Stdio.ProcessTree{
                supervisor: supervisor,
-               sh: sh
+               pipeline: pipeline
              }}
 
           {:error, _} = error ->
@@ -673,10 +673,10 @@ defmodule Stdio do
 
   def __atexit__(%Stdio.ProcessTree{
         supervisor: %Stdio{init: init, atexit: atexit, state: state},
-        sh: sh
+        pipeline: pipeline
       })
       when is_function(atexit, 3) do
-    atexit.(init, sh, state)
+    atexit.(init, pipeline, state)
     flush(init)
   end
 
@@ -760,7 +760,7 @@ defmodule Stdio do
           :shutdown
           | :noshutdown
           | :noreap
-          | (init :: :prx.task(), sh :: :prx.task(), state :: map() -> any),
+          | (init :: :prx.task(), pipeline :: [:prx.task()], state :: map() -> any),
           [:prx.call()] | {:allow, [:prx.call()]} | {:deny, [:prx.call()]}
         ) :: {:ok, Stdio.t()} | {:error, :prx.posix()}
   def supervisor(atexit \\ :shutdown, filter \\ @allowed_calls) do
@@ -802,7 +802,7 @@ defmodule Stdio do
           :shutdown
           | :noshutdown
           | :noreap
-          | (init :: :prx.task(), sh :: :prx.task(), state :: map() -> any),
+          | (init :: :prx.task(), pipeline :: [:prx.task()], state :: map() -> any),
           [:prx.call()] | {:allow, [:prx.call()]} | {:deny, [:prx.call()]}
         ) :: {:ok, Stdio.t()} | {:error, :prx.posix()}
   def supervise(init, atexit \\ :shutdown, filter \\ @allowed_calls) do
@@ -889,48 +889,6 @@ defmodule Stdio do
 
       path ->
         path
-    end
-  end
-end
-
-defmodule Stdio.OpError do
-  defexception [:reason, :message]
-
-  @impl true
-  def exception(opts) do
-    reason = opts[:reason]
-
-    case reason do
-      :badop ->
-        {m, f, a} = opts[:op]
-        ops = opts[:ops]
-
-        error =
-          case opts[:error] do
-            {:reason, invalid} ->
-              Exception.format(:error, {:badmatch, invalid}, [{m, f, a, []}])
-
-            {:reason, kind, payload} ->
-              Exception.format(kind, payload, [{m, f, a, []}])
-          end
-
-        %Stdio.OpError{
-          message: """
-          #{error}
-
-          remaining ops:
-          #{inspect(ops, pretty: true)}
-          """,
-          reason: reason
-        }
-
-      _ ->
-        error = "#{:file.format_error(reason)} (#{reason})"
-
-        %Stdio.OpError{
-          message: "operation returned an error: #{error}",
-          reason: reason
-        }
     end
   end
 end

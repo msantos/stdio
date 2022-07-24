@@ -89,8 +89,8 @@ defmodule Stdio.Rootless do
                :ok <- write_file(cinit, "/proc/self/gid_map", "#{gid} #{rgid} 1\n"),
                {:ok, _} <- Stdio.supervise(cinit) do
             case :prx.fork(cinit) do
-              {:ok, _} = sh ->
-                sh
+              {:ok, sh} ->
+                {:ok, [cinit, sh]}
 
               {:error, _} = error ->
                 :prx.stop(cinit)

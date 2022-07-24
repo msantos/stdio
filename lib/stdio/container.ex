@@ -115,7 +115,13 @@ defmodule Stdio.Container do
       end
 
     fn init ->
-      :prx.clone(init, flags)
+      case :prx.clone(init, flags) do
+        {:ok, sh} ->
+          {:ok, [sh]}
+
+        {:error, _} = error ->
+          error
+      end
     end
   end
 

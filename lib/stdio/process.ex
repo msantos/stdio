@@ -55,7 +55,13 @@ defmodule Stdio.Process do
   @impl true
   def init(_config) do
     fn init ->
-      :prx.fork(init)
+      case :prx.fork(init) do
+        {:ok, sh} ->
+          {:ok, [sh]}
+
+        {:error, _} = error ->
+          error
+      end
     end
   end
 

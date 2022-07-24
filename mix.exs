@@ -9,7 +9,7 @@ defmodule Stdio.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       docs: docs(),
-      description: "Stream standard I/O from system processes",
+      description: "Isolate, reap, restrict and stream standard I/O from system processes",
       package: package(),
       aliases: aliases(),
       test_coverage: test_coverage(),
