@@ -67,7 +67,7 @@ defmodule Stdio.Jail do
   end
 
   @impl true
-  def ops(config \\ []) do
+  def ops(config) do
     net =
       case Keyword.get(config, :net, :none) do
         :none ->

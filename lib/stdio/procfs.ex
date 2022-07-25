@@ -115,29 +115,25 @@ defmodule Stdio.Procfs do
     end
   end
 
-  @spec process_cycle(:prx.pid_t(), String.t()) :: Enumerable.t()
-  defp process_cycle(parent, procfs) do
-    startfun = fn -> parent end
-
-    resourcefun = fn pid ->
-      case children(pid, procfs) do
-        [] -> {:halt, pid}
-        pids -> {pids, pid}
+  @spec __reap__(
+          :prx.pid_t(),
+          any,
+          (term, any -> {Enumerable.t(), any} | {:halt, term}),
+          Path.t()
+        ) :: :ok
+  def __reap__(pid, acc, reaper, procfs) do
+    resourcefun = fn parent ->
+      case children(parent, procfs) do
+        [] -> {:halt, parent}
+        pids -> {pids, parent}
       end
     end
 
-    endfun = fn _ -> :ok end
-
     Stream.resource(
-      startfun,
+      fn -> pid end,
       resourcefun,
-      endfun
+      fn _ -> :ok end
     )
-  end
-
-  @spec __reap__(:prx.pid_t(), any, (term, any -> {Enumerable.t(), any} | {:halt, term})) :: :ok
-  def __reap__(pid, acc, reaper, procfs \\ @procfs) do
-    process_cycle(pid, procfs)
     |> Stream.transform(acc, reaper)
     |> Stream.run()
   end

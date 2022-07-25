@@ -31,12 +31,12 @@ defmodule Stdio.Syscall do
   @doc """
   Operations required to disable setuid.
   """
-  @callback disable_setuid() :: [:prx_task.op()]
+  @callback disable_setuid() :: [Stdio.Op.t()]
 
   @doc """
   Operations required to terminate a process if the parent exits.
   """
-  @callback set_pdeathsig() :: [:prx_task.op()]
+  @callback set_pdeathsig() :: [Stdio.Op.t()]
 
   @doc false
   defmacro __using__(_) do

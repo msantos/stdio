@@ -109,7 +109,7 @@ defmodule Stdio.Rootless do
   end
 
   @impl true
-  def ops(config \\ []) do
+  def ops(config) do
     hostname = Keyword.get(config, :hostname, "stdio")
     priv_dir = Stdio.__basedir__()
 

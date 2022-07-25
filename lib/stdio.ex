@@ -21,6 +21,22 @@ defmodule Stdio do
             supervisor: Stdio.t(),
             pipeline: [:prx.task()]
           }
+
+    @spec __supervisor__(t) :: :prx.task()
+    def __supervisor__(%Stdio.ProcessTree{
+          supervisor: %Stdio{init: init},
+          pipeline: [_]
+        })
+        when is_pid(init),
+        do: init
+
+    def __supervisor__(%Stdio.ProcessTree{
+          supervisor: _,
+          pipeline: pipeline
+        }) do
+      [_child, parent | _] = Enum.reverse(pipeline)
+      parent
+    end
   end
 
   @moduledoc ~S"""
@@ -156,7 +172,7 @@ defmodule Stdio do
   In a PID namespace, this process will be the `init` process or PID 1.
   """
   @callback init(Keyword.t()) ::
-              (:prx.task() -> {:ok, :prx.task()} | {:error, :prx.posix()})
+              (:prx.task() -> {:ok, [:prx.task()]} | {:error, :prx.posix()})
 
   @doc """
   Function run on operation error.
@@ -177,12 +193,12 @@ defmodule Stdio do
   @callback onerror(Keyword.t()) :: (init :: :prx.task(), sh :: :prx.task() -> any)
 
   @doc """
-  A sequence of `t::prx_task.op/0` instructions for a system process.
+  A sequence of `t:Stdio.Op.t()/0` instructions for a system process.
 
   Operations are defined in [prx](https://hexdocs.pm/prx/prx.html)
   but any module can be called by specifying the module name.
   """
-  @callback ops(Keyword.t()) :: [:prx_task.op()]
+  @callback ops(Keyword.t()) :: [Stdio.Op.t()]
 
   @environ [
     ~s(PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:/opt/sbin:/opt/bin),
@@ -242,8 +258,8 @@ defmodule Stdio do
           {:task, (Keyword.t() -> {:ok, Stdio.t()} | {:error, :prx.posix()})}
           | {:init,
              (Keyword.t() ->
-                (init :: :prx.task() -> {:ok, sh :: :prx.task()} | {:error, :prx.posix()}))}
-          | {:ops, (Keyword.t() -> [:prx_task.op()])}
+                (init :: :prx.task() -> {:ok, pipeline :: [:prx.task()]} | {:error, :prx.posix()}))}
+          | {:ops, (Keyword.t() -> [Stdio.Op.t()])}
           | {:onerror, (Keyword.t() -> (init :: :prx.task(), sh :: :prx.task() -> any))}
 
   @typedoc ~S"""
@@ -603,48 +619,36 @@ defmodule Stdio do
 
     config = Keyword.merge(config, fstab: fstab)
 
-    result =
+    pipeline =
+      Stdio.Op.task!(
+        supervisor,
+        opsfun.(config),
+        initfun.(config),
+        onerrorfun.(config)
+      )
+
+    sh = List.last(pipeline)
+    {arg0, argv} = argv(command)
+
+    errno =
       try do
-        Stdio.Op.task(supervisor, opsfun.(config), initfun.(config), onerrorfun.(config))
-      catch
-        :error, {:badop, {_mod, _fun, _arg} = op, ops, error} ->
-          raise Stdio.OpError,
-            reason: :badop,
-            op: op,
-            ops: ops,
-            error: error
+        :prx.execve(sh, arg0, argv, environ)
+      rescue
+        _ ->
+          {:error, :enoent}
       end
 
-    case result do
-      {:ok, pipeline} ->
-        sh = List.last(pipeline)
-        {arg0, argv} = argv(command)
+    case errno do
+      :ok ->
+        {:ok,
+         %Stdio.ProcessTree{
+           supervisor: supervisor,
+           pipeline: pipeline
+         }}
 
-        errno =
-          try do
-            :prx.execve(sh, arg0, argv, environ)
-          rescue
-            _ ->
-              {:error, :enoent}
-          end
-
-        case errno do
-          :ok ->
-            {:ok,
-             %Stdio.ProcessTree{
-               supervisor: supervisor,
-               pipeline: pipeline
-             }}
-
-          {:error, _} = error ->
-            :prx.stop(sh)
-            error
-        end
-
-      {:error, errno} = error ->
-        raise Stdio.OpError,
-          reason: errno,
-          error: error
+      {:error, _} = error ->
+        :prx.stop(sh)
+        error
     end
   end
 

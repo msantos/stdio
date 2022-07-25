@@ -73,7 +73,7 @@ defmodule Stdio.Process do
   end
 
   @impl true
-  def ops(config \\ []) do
+  def ops(config) do
     uid = Keyword.get(config, :uid, :erlang.phash2(self(), 0xFFFF) + 0x10000)
     gid = Keyword.get(config, :gid, uid)
     groups = Keyword.get(config, :groups, [])
@@ -104,13 +104,14 @@ defmodule Stdio.Process do
   def __setugid__(task, uid, gid, groups) do
     case :prx.getuid(task) do
       0 ->
-        with :ok <- :prx.setgroups(task, groups),
-             :ok <- :prx.setresgid(task, gid, gid, gid) do
-          :prx.setresuid(task, uid, uid, uid)
-        end
+        [
+          {:setgroups, [groups]},
+          {:setresgid, [gid, gid, gid]},
+          {:setresuid, [uid, uid, uid]}
+        ]
 
       _ ->
-        :ok
+        []
     end
   end
 end

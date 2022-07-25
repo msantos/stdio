@@ -126,7 +126,7 @@ defmodule Stdio.Container do
   end
 
   @impl true
-  def ops(config \\ []) do
+  def ops(config) do
     uid = Keyword.get(config, :uid, :erlang.phash2(self(), 0xFFFF) + 0x10000)
     gid = Keyword.get(config, :gid, uid)
     groups = Keyword.get(config, :groups, [])
