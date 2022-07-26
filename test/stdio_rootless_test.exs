@@ -123,7 +123,8 @@ defmodule StdioRootlessTest do
 
     # [
     #   ["/dev/vdb", "on", "/", "type", "btrfs",
-    #    "(ro,nosuid,relatime,discard,space_cache,user_subvol_rm_allowed,subvolid=425,subvol=/lxd/storage-pools/default/containers/test)"]
+    #    "(ro,nosuid,relatime,discard,space_cache,user_subvol_rm_allowed,\
+    #    subvolid=425,subvol=/lxd/storage-pools/default/containers/test)"]
     # ]
     flags =
       e

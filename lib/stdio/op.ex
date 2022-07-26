@@ -60,13 +60,39 @@ defmodule Stdio.OpError do
 end
 
 defmodule Stdio.Op do
-  @moduledoc "Run sequence of system calls on a process"
+  @moduledoc "Run a sequence of system calls on a process"
 
+  @typedoc """
+  Operations consist of a list of tuples containing:
+
+  * an optional module name (default: `:prx`)
+  * a function name
+  * a list of arguments
+  * an optional list of options to modify the behaviour of the operation
+    (see `t:option`)
+
+  ## Examples
+
+      {:setresuid, [1000,1000,1000]}
+      {:prx, :setresuid, [1000,1000,1000]}
+      {:prx, :setresuid, [1000,1000,1000], errexit: false}
+
+  """
   @type t ::
           {atom(), list()}
           | {module(), atom(), list()}
           | {module(), atom(), list(), [option()]}
 
+  @typedoc """
+  Options to modify the behavior of an operation:
+
+  * `state`: pass `ok` result as the first parameter to the next
+     operation (default: false)
+
+  * `errexit`: abort operations on error (default: true)
+
+  * `transform`: abort operations on error (default: true)
+  """
   @type option ::
           {:state, boolean()}
           | {:errexit, boolean()}
@@ -74,6 +100,9 @@ defmodule Stdio.Op do
           | {:errexit, boolean()}
           | {:transform, (any() -> :ok | {:ok, state :: any()} | {:error, :prx.posix()})}
 
+  @doc """
+  Creates and configures a new process from the supervisor process.
+  """
   @spec task!(
           Stdio.t(),
           ops :: [t | [t]],
@@ -100,6 +129,12 @@ defmodule Stdio.Op do
     end
   end
 
+  @spec run!(
+          Stdio.t(),
+          [:prx.task(), ...],
+          (init :: :prx.task(), sh :: :prx.task() -> any),
+          [t | [t]]
+        ) :: [:prx.task(), ...]
   defp run!(%Stdio{} = supervisor, inits, onerrorfun, ops) do
     init = List.last(inits)
 

@@ -86,6 +86,12 @@ defmodule Stdio do
   > require the system supervisor (not the beam process!) to be running as
   > the `root` user. See `setuid/0` for instructions on how to set it up.
 
+  Behaviours may change the root filesystem for the process. The default
+  `chroot(2)` directory hierarchy can be created by running:
+
+      iex> Stdio.Container.make_chroot_tree!()
+      :ok
+
   ## Process Capabilities and Namespaces
 
   `Stdio` behaviours can restrict system process capabilities or isolate
@@ -353,7 +359,7 @@ defmodule Stdio do
               | :rlimit_fsize
               | :rlimit_nofile
               | :rlimit_nproc, %{cur: integer, max: integer}}}
-          | Keyword.t()
+          | {Keyword.key(), Keyword.value()}
 
   @typedoc """
   Tuples containing the process stdout, stderr and termination status.
@@ -610,6 +616,18 @@ defmodule Stdio do
     end
   end
 
+  @spec __fork__(
+          t,
+          String.t()
+          | [String.t(), ...]
+          | {arg0 :: String.t(), argv :: [String.t(), ...]},
+          [config],
+          opsfun :: (Keyword.t() -> [Stdio.Op.t()]),
+          initfun ::
+            (Keyword.t() ->
+               (init :: :prx.task() -> {:ok, pipeline :: [:prx.task()]} | {:error, :prx.posix()})),
+          onerrorfun :: (Keyword.t() -> (init :: :prx.task(), sh :: :prx.task() -> any))
+        ) :: {:ok, Stdio.ProcessTree.t()} | {:error, :prx.posix()}
   def __fork__(%Stdio{} = supervisor, command, config, opsfun, initfun, onerrorfun) do
     environ = Keyword.get(config, :environ, @environ)
 

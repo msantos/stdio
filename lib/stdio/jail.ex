@@ -55,7 +55,7 @@ defmodule Stdio.Jail do
       iex> Stdio.stream!(
       ...> ["sh", "-c", "export PATH=/; ping -c 1 127.0.0.1 | head -1"],
       ...> Stdio.Jail,
-      ...> uid: 0, path: "/rescue", setuid: true, net: %{ip4: ["127.0.0.1"]}
+      ...> uid: 0, path: "/rescue", setuid: true, net: :host
       ...>) |> Enum.to_list()
       [stdout: "PING 127.0.0.1 (127.0.0.1): 56 data bytes\n", exit_status: 0]
 
@@ -74,7 +74,19 @@ defmodule Stdio.Jail do
           %{ip4: [], ip6: []}
 
         :host ->
-          %{ip4: [], ip6: []}
+          {:ok, [{_ifname, flags} | _]} = :inet.getifaddrs()
+
+          ip4 =
+            for {_, _, _, _} = ip <-
+                  Keyword.get_values(flags, :addr),
+                do: ip
+
+          ip6 =
+            for {_, _, _, _, _, _, _, _} = ip <-
+                  Keyword.get_values(flags, :addr),
+                do: ip
+
+          %{ip4: ip4, ip6: ip6}
 
         inet when is_map(inet) ->
           inet

@@ -1,7 +1,7 @@
 defmodule StdioOpTest do
   use ExUnit.Case
 
-  setup_all do
+  setup do
     Stdio.__setuid__(false)
     {:ok, supervisor} = Stdio.supervisor()
 

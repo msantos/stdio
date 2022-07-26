@@ -138,6 +138,13 @@ iex> Stdio.stream!("ping -c 1 8.8.8.8", Stdio.Process, setuid: true) |> Enum.to_
 > For setup, see
 > [Stdio.setuid/0](https://hexdocs.pm/stdio/Stdio.html#setuid/0).
 
+Behaviours may change the root filesystem for the process. The default
+`chroot(2)` directory hierarchy can be created by running:
+
+```elixir
+iex> Stdio.Container.make_chroot_tree!()
+```
+
 ### Process Isolation
 
 Behaviours can implement process restrictions or process isolation. For
