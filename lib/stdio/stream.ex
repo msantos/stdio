@@ -21,17 +21,19 @@ defmodule Stdio.Stream do
 
   defstruct process: nil,
             stream_pid: nil,
+            onexit: &Stdio.Process.onexit/1,
             status: :running,
             flush_timeout: 0
 
   @type t :: %__MODULE__{
           process: Stdio.ProcessTree.t() | nil,
           stream_pid: pid | nil,
+          onexit: (Stdio.ProcessTree.t() -> boolean()),
           status: :running | :flush | :flushing,
           flush_timeout: 0 | :infinity
         }
 
-  defp stream_init(cmd, config, opsfun, initfun, onerrorfun, taskfun) do
+  defp stream_init(cmd, config, opsfun, initfun, onerrorfun, taskfun, onexitfun) do
     case taskfun.(config) do
       {:ok, supervisor} ->
         result =
@@ -52,7 +54,7 @@ defmodule Stdio.Stream do
 
         case result do
           {:ok, process} ->
-            %Stdio.Stream{process: process}
+            %Stdio.Stream{process: process, onexit: onexitfun.(config)}
 
           {:error, error} ->
             Stdio.__atexit__(%Stdio.ProcessTree{supervisor: supervisor})
@@ -69,14 +71,15 @@ defmodule Stdio.Stream do
     end
   end
 
-  def __stream__(cmd, config, opsfun, initfun, onerrorfun, taskfun) do
+  def __stream__(cmd, config, opsfun, initfun, onerrorfun, taskfun, onexitfun) do
     startfun = fn ->
-      stream_init(cmd, config, opsfun, initfun, onerrorfun, taskfun)
+      stream_init(cmd, config, opsfun, initfun, onerrorfun, taskfun, onexitfun)
     end
 
     endfun = fn %Stdio.Stream{
-                  process: process
+                  process: %Stdio.ProcessTree{pipeline: pipeline} = process
                 } ->
+      for pid <- Enum.reverse(pipeline), do: :prx.stop(pid)
       Stdio.__atexit__(process)
     end
 
@@ -119,7 +122,7 @@ defmodule Stdio.Stream do
     )
   end
 
-  defp pipe_init(stream, cmd, config, opsfun, initfun, onerrorfun, taskfun) do
+  defp pipe_init(stream, cmd, config, opsfun, initfun, onerrorfun, taskfun, onexitfun) do
     streamfun = fn pid ->
       fn ->
         stream
@@ -152,7 +155,8 @@ defmodule Stdio.Stream do
 
             %Stdio.Stream{
               process: process,
-              stream_pid: stream_pid
+              stream_pid: stream_pid,
+              onexit: onexitfun.(config)
             }
 
           {:error, error} ->
@@ -170,24 +174,26 @@ defmodule Stdio.Stream do
     end
   end
 
-  def __pipe__(stream, cmd, config, opsfun, initfun, onerrorfun, taskfun) do
+  def __pipe__(stream, cmd, config, opsfun, initfun, onerrorfun, taskfun, onexitfun) do
     startfun = fn ->
-      pipe_init(stream, cmd, config, opsfun, initfun, onerrorfun, taskfun)
+      pipe_init(stream, cmd, config, opsfun, initfun, onerrorfun, taskfun, onexitfun)
     end
 
     endfun = fn
       %Stdio.Stream{
-        process: process,
+        process: %Stdio.ProcessTree{pipeline: pipeline} = process,
         stream_pid: nil
       } ->
+        for pid <- Enum.reverse(pipeline), do: :prx.stop(pid)
         Stdio.__atexit__(process)
 
       %Stdio.Stream{
-        process: process,
+        process: %Stdio.ProcessTree{pipeline: pipeline} = process,
         stream_pid: stream_pid
       } ->
         Process.unlink(stream_pid)
         Process.exit(stream_pid, :kill)
+        for pid <- Enum.reverse(pipeline), do: :prx.stop(pid)
         Stdio.__atexit__(process)
     end
 
@@ -302,41 +308,19 @@ defmodule Stdio.Stream do
 
   defp stdio(
          %Stdio.Stream{
-           process:
-             %Stdio.ProcessTree{
-               pipeline: pipeline
-             } = pstree,
+           process: %Stdio.ProcessTree{} = pstree,
            stream_pid: nil,
+           onexit: onexit,
            status: :flush
          } = state
        ) do
-    # The shell process is in a PID namespace:
-    #
-    # * calling :prx.pidof(sh) will return the namespace PID, e.g., 2
-    # * the supervisor process is in the global PID namespace
-    # * calling :prx.kill(init, pid) will attempt to kill PID 2 in the
-    #   global namespace
-    #
-    # The direct parent of the process created the PID namespace.
-    parent = Stdio.ProcessTree.__supervisor__(pstree)
-    sh = List.last(pipeline)
-
     flush_timeout =
-      case :prx.pidof(sh) do
-        :noproc ->
-          0
-
-        pid ->
-          _ =
-            case :prx.kill(parent, -pid, :SIGKILL) do
-              {:error, :esrch} ->
-                :prx.kill(parent, pid, :SIGKILL)
-
-              _ ->
-                :ok
-            end
-
+      case onexit.(pstree) do
+        true ->
           :infinity
+
+        false ->
+          0
       end
 
     stdio(%{state | status: :flushing, flush_timeout: flush_timeout})

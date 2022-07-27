@@ -206,6 +206,15 @@ defmodule Stdio do
   """
   @callback ops(Keyword.t()) :: [Stdio.Op.t()]
 
+  @doc """
+  Function run during stream termination.
+
+  `c:onexit/1` runs when the stream is closed. The function can perform
+  clean up and signal any lingering processses. Returns `true` if
+  subprocesses were found to be running during cleanup.
+  """
+  @callback onexit(Keyword.t()) :: (Stdio.ProcessTree.t() -> boolean())
+
   @environ [
     ~s(PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:/opt/sbin:/opt/bin),
     ~s(HOME=/home)
@@ -222,7 +231,8 @@ defmodule Stdio do
       direction LR
       [*] --> Supervisor: fork(2)
       Supervisor --> Subprocess: fork(2)
-      Subprocess --> [*]
+      Subprocess --> Terminate: stream
+      Terminate --> [*]
       state Supervisor {
           direction LR
           [*] --> task
@@ -236,7 +246,10 @@ defmodule Stdio do
           ops --> result
           result --> [*]: ok
           result --> onerror: {error, posix()}
-          onerror --> [*]
+      }
+      state Terminate {
+          direction LR
+          onexit --> [*]
       }
   ```
 
@@ -259,6 +272,10 @@ defmodule Stdio do
 
   Function called to clean up if any of the operations defined in
   `c:ops/1` fail.
+
+  ## onexit
+
+  Function called when the stream is closed.
   """
   @type phase ::
           {:task, (Keyword.t() -> {:ok, Stdio.t()} | {:error, :prx.posix()})}
@@ -267,6 +284,7 @@ defmodule Stdio do
                 (init :: :prx.task() -> {:ok, pipeline :: [:prx.task()]} | {:error, :prx.posix()}))}
           | {:ops, (Keyword.t() -> [Stdio.Op.t()])}
           | {:onerror, (Keyword.t() -> (init :: :prx.task(), sh :: :prx.task() -> any))}
+          | {:onexit, (Keyword.t() -> (Stdio.ProcessTree.t() -> boolean()))}
 
   @typedoc ~S"""
   Configuration options for callbacks:
@@ -400,7 +418,12 @@ defmodule Stdio do
         Stdio.Process.ops(config)
       end
 
-      defoverridable task: 1, init: 1, onerror: 1, ops: 1
+      @doc false
+      def onexit(config) do
+        Stdio.Process.onexit(config)
+      end
+
+      defoverridable task: 1, init: 1, onerror: 1, ops: 1, onexit: 1
     end
   end
 
@@ -457,17 +480,19 @@ defmodule Stdio do
           | [String.t(), ...]
           | {arg0 :: String.t(), argv :: [String.t(), ...]},
           module | [phase] | {module, [phase]},
+          task: [config],
           init: [config],
           ops: [config],
-          onerror: [config],
-          task: [config]
+          onexit: [config],
+          onerror: [config]
         ) :: Enumerable.t()
   def stream!(command, behaviour \\ Stdio.Process, config \\ []) do
     fun = implementation(behaviour)
-    opsfun = Keyword.get(fun, :ops, &Stdio.Process.ops/1)
-    initfun = Keyword.get(fun, :init, &Stdio.Process.init/1)
-    onerrorfun = Keyword.get(fun, :onerror, &Stdio.Process.onerror/1)
     taskfun = Keyword.get(fun, :task, &Stdio.Process.task/1)
+    initfun = Keyword.get(fun, :init, &Stdio.Process.init/1)
+    opsfun = Keyword.get(fun, :ops, &Stdio.Process.ops/1)
+    onerrorfun = Keyword.get(fun, :onerror, &Stdio.Process.onerror/1)
+    onexitfun = Keyword.get(fun, :onexit, &Stdio.Process.onexit/1)
 
     Stdio.Stream.__stream__(
       command,
@@ -475,7 +500,8 @@ defmodule Stdio do
       opsfun,
       initfun,
       onerrorfun,
-      taskfun
+      taskfun,
+      onexitfun
     )
   end
 
@@ -509,10 +535,11 @@ defmodule Stdio do
           | [String.t(), ...]
           | {arg0 :: String.t(), argv :: [String.t(), ...]},
           module | [phase] | {module, [phase]},
+          task: [config],
           init: [config],
           ops: [config],
           onerror: [config],
-          task: [config]
+          onexit: [config]
         ) :: Enumerable.t()
 
   def pipe!(stream, command, behaviour \\ Stdio.Process, config \\ []) do
@@ -521,6 +548,7 @@ defmodule Stdio do
     initfun = Keyword.get(fun, :init, &Stdio.Process.init/1)
     onerrorfun = Keyword.get(fun, :onerror, &Stdio.Process.onerror/1)
     taskfun = Keyword.get(fun, :task, &Stdio.Process.task/1)
+    onexitfun = Keyword.get(fun, :onexit, &Stdio.Process.onexit/1)
 
     Stdio.Stream.__pipe__(
       stream,
@@ -529,7 +557,8 @@ defmodule Stdio do
       opsfun,
       initfun,
       onerrorfun,
-      taskfun
+      taskfun,
+      onexitfun
     )
   end
 
@@ -881,7 +910,8 @@ defmodule Stdio do
       ops: &module.ops/1,
       init: &module.init/1,
       onerror: &module.onerror/1,
-      task: &module.task/1
+      task: &module.task/1,
+      onexit: &module.onexit/1
     ]
 
   defp implementation(funs) when is_list(funs), do: funs
@@ -892,7 +922,8 @@ defmodule Stdio do
         ops: &module.ops/1,
         init: &module.init/1,
         onerror: &module.onerror/1,
-        task: &module.task/1
+        task: &module.task/1,
+        onexit: &module.onexit/1
       ],
       funs
     )
