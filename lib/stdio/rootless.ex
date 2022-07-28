@@ -33,7 +33,7 @@ defmodule Stdio.Rootless do
   ## Examples
 
       iex> Stdio.stream!("pstree", Stdio.Rootless) |> Enum.to_list()
-      [stdout: "supervise---sh---pstree\n", exit_status: 0]
+      [stdout: "Supervise---sh---pstree\n", exit_status: 0]
 
       iex(1)> Stdio.stream!("ip --oneline -4 addr show dev lo", Stdio.Rootless, net: :host, setuid: true) |> Enum.to_list()
       [

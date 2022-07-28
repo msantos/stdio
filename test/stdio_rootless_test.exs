@@ -92,6 +92,15 @@ defmodule StdioRootlessTest do
       end
 
     assert :ok = termsig
+
+    result =
+      receive do
+        t -> t
+      after
+        0 -> :ok
+      end
+
+    assert :ok = result
   end
 
   test "pipe: subprocess exits" do

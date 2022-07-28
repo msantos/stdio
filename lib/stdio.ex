@@ -735,9 +735,7 @@ defmodule Stdio do
   # will not be read.
   defp flush(task) do
     receive do
-      # The parent process receives a SIGPIPE if the subprocess closes stdin
-      # or exits while the parent is writing to the child's stdin.
-      {:signal, ^task, _, _} ->
+      {:signal, _task, _, _} ->
         flush(task)
 
       # Flush any remaining events:
@@ -858,7 +856,9 @@ defmodule Stdio do
         ) :: {:ok, Stdio.t()} | {:error, :prx.posix()}
   def supervise(init, atexit \\ :shutdown, filter \\ @allowed_calls) do
     with :ok <- Stdio.Syscall.os().subreaper(init),
-         :ok <- Stdio.Syscall.os().setproctitle(init, "supervise") do
+         {:ok, _} <- :prx.sigaction(init, :sigpipe, :sig_ign),
+         {:ok, _} <- :prx.sigaction(init, :sigsegv, :sig_dfl),
+         :ok <- Stdio.Syscall.os().setproctitle(init, "Supervise") do
       _ = :prx.setopt(init, :signaloneof, 9)
       :ok = :prx.filter(init, filter, [])
       _ = :prx.setcpid(init, :flowcontrol, 1)

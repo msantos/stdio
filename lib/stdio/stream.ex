@@ -359,7 +359,8 @@ defmodule Stdio.Stream do
       {:stderr, ^sh, stderr} ->
         {[{:stderr, stderr}], state}
 
-      {:stdin, ^sh, _error} ->
+      # flush errors from intermediary supervisors
+      {:stdin, _sh, _error} ->
         {[], state}
 
       {:signal, _, _, _} ->
