@@ -1,16 +1,24 @@
 defmodule Stdio.MixProject do
   use Mix.Project
 
+  @version "0.2.0"
+
   def project do
     [
       app: :stdio,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       docs: docs(),
-      description: "Isolate, reap, restrict and stream standard I/O from system processes",
+      description: """
+      Stream standard I/O from system processes.
+
+      Reliably reap, restrict and isolate system tasks: Stdio is a
+      control plane for processes.
+      """,
       package: package(),
+      source_url: "https://github.com/msantos/stdio",
       aliases: aliases(),
       test_coverage: test_coverage(),
       dialyzer: [
@@ -106,6 +114,7 @@ defmodule Stdio.MixProject do
 
   defp docs do
     [
+      source_ref: "v#{@version}",
       extras: [
         "README.md": [title: "Overview"]
       ],

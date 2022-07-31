@@ -7,8 +7,8 @@ Reliably reap, restrict and isolate system tasks:
 
 ```mermaid
 graph LR
-    B([beam]) -->|root| S0[supervise]
-    B([beam]) -->|user| S1[supervise]
+    B([beam]) -->|root| S0[Supervise]
+    B([beam]) -->|user| S1[Supervise]
     S0 --> |user|I0[[init]]
     S0 --> |user|I1[[init]]
     subgraph namespace0
@@ -28,7 +28,7 @@ graph LR
 ```elixir
 def deps do
   [
-    {:stdio, "~> 0.1.0"}
+    {:stdio, "~> 0.2.0"}
   ]
 end
 ```
@@ -49,7 +49,7 @@ iex> Stdio.stream!("pstree $$") |> Enum.to_list()
 
 ```mermaid
 graph LR
-    B([beam]) -->S[supervise]
+    B([beam]) -->S[Supervise]
     S --> I[[sh]]
     I --> C[[pstree]]
 ```
@@ -65,7 +65,7 @@ iex> ["let", "it", "crash"] |> Stdio.pipe!("tr '[a-z]' '[A-Z]'") |> Enum.to_list
 
 ```mermaid
 graph LR
-    B([beam]) -->|"[let, it, crash]"|S[supervise]
+    B([beam]) -->|"[let, it, crash]"|S[Supervise]
     S --> I[[sh]]
     I --> |"[let, it, crash]"|C[["tr '[a-z]' '[A-Z]'"]]
     C --> O(["LETITCRASH"])
@@ -84,7 +84,7 @@ iex> Stdio.stream!(["/bin/echo", "test"]) |> Enum.to_list()
 
 ```mermaid
 graph LR
-    B([beam]) -->S[supervise]
+    B([beam]) -->S[Supervise]
     S --> C[[/bin/echo test]]
 ```
 
@@ -102,7 +102,7 @@ iex> Stdio.Procfs.children(25723)
 
 ```mermaid
 graph LR
-    B([beam]) -->S[supervise]
+    B([beam]) -->S[Supervise]
     S -.-x I[[/bin/sh]]
     I -.-x C0[[sleep 131]]
     I -.-x C1[[sleep 111]]
@@ -158,7 +158,7 @@ iex> Stdio.stream!("ip -br addr show", Stdio.Rootless) |> Enum.to_list()
 
 ```mermaid
 graph LR
-    B([beam]) -->|user| S[supervise]
+    B([beam]) -->|user| S[Supervise]
     S --> |user|I[[init]]
     subgraph "user/network namespace"
     I --> C[[ip -br addr show]]
@@ -176,7 +176,7 @@ iex> Stdio.stream!("ping -c 1 8.8.8.8", Stdio.Container, setuid: true) |> Enum.t
 
 ```mermaid
 graph LR
-    B([beam]) -->|root| S[supervise]
+    B([beam]) -->|root| S[Supervise]
     S --> |user|I[[sh]]
     subgraph "network namespace"
     I --> C[[ping -c 1 8.8.8.8]]
@@ -196,7 +196,7 @@ iex> Stdio.stream!("ping -c 1 8.8.8.8", Stdio.Container, setuid: true, net: :hos
 
 ```mermaid
 graph LR
-    B([beam]) -->|root| S[supervise]
+    B([beam]) -->|root| S[Supervise]
     S --> |user|I[[sh]]
     subgraph "namespace (net shared with parent)"
     I --> C[[ping -c 1 8.8.8.8]]
@@ -216,7 +216,7 @@ iex> Stdio.stream!(["./ping", "-c", "1", "8.8.8.8"], Stdio.Jail, path: "/rescue"
 
 ```mermaid
 graph LR
-    B([beam]) -->|root| S[supervise]
+    B([beam]) -->|root| S[Supervise]
     S --> |user|I[[sh]]
     subgraph "jail"
     I --> C[[ping -c 1 8.8.8.8]]

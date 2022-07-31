@@ -870,7 +870,7 @@ defmodule Stdio do
 
   ```mermaid
   graph LR
-      B([beam]) --> S[supervise]
+      B([beam]) --> S[Supervise]
       S -.-> I0[[sh]]
       S --> I1[[sh]]
       I0 -.-> C0[[echo test]]
