@@ -21,22 +21,6 @@ defmodule Stdio do
             supervisor: Stdio.t(),
             pipeline: [:prx.task()]
           }
-
-    @spec __supervisor__(t) :: :prx.task()
-    def __supervisor__(%Stdio.ProcessTree{
-          supervisor: %Stdio{init: init},
-          pipeline: [_]
-        })
-        when is_pid(init),
-        do: init
-
-    def __supervisor__(%Stdio.ProcessTree{
-          supervisor: _,
-          pipeline: pipeline
-        }) do
-      [_child, parent | _] = Enum.reverse(pipeline)
-      parent
-    end
   end
 
   @moduledoc ~S"""
@@ -192,11 +176,15 @@ defmodule Stdio do
   callback are not handled by default and may terminate the linked
   process.
 
-  For example, calls into the `init` process may raise an exception if
-  the `init` and `sh` processes are associated with different elixir
-  processes.
+  The supervisor process for the task can be found by calling
+  `:prx.parent/1`. For example, to signal the process group:
+
+      supervisor = :prx.parent(sh)
+      pid = :prx.pidof(sh)
+      :prx.kill(supervisor, -pid, :SIGTERM)
+
   """
-  @callback onerror(Keyword.t()) :: (init :: :prx.task(), sh :: :prx.task() -> any)
+  @callback onerror(Keyword.t()) :: (sh :: :prx.task() -> any)
 
   @doc """
   A sequence of `t:Stdio.Op.t()/0` instructions for a system process.
@@ -283,7 +271,7 @@ defmodule Stdio do
              (Keyword.t() ->
                 (init :: :prx.task() -> {:ok, pipeline :: [:prx.task()]} | {:error, :prx.posix()}))}
           | {:ops, (Keyword.t() -> [Stdio.Op.t()])}
-          | {:onerror, (Keyword.t() -> (init :: :prx.task(), sh :: :prx.task() -> any))}
+          | {:onerror, (Keyword.t() -> (sh :: :prx.task() -> any))}
           | {:onexit, (Keyword.t() -> (Stdio.ProcessTree.t() -> boolean()))}
 
   @typedoc ~S"""
@@ -655,7 +643,7 @@ defmodule Stdio do
           initfun ::
             (Keyword.t() ->
                (init :: :prx.task() -> {:ok, pipeline :: [:prx.task()]} | {:error, :prx.posix()})),
-          onerrorfun :: (Keyword.t() -> (init :: :prx.task(), sh :: :prx.task() -> any))
+          onerrorfun :: (Keyword.t() -> (sh :: :prx.task() -> any))
         ) :: {:ok, Stdio.ProcessTree.t()} | {:error, :prx.posix()}
   def __fork__(%Stdio{} = supervisor, command, config, opsfun, initfun, onerrorfun) do
     environ = Keyword.get(config, :environ, @environ)

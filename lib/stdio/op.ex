@@ -107,9 +107,9 @@ defmodule Stdio.Op do
           Stdio.t(),
           ops :: [t | [t]],
           (init :: :prx.task() -> {:ok, pipeline :: [:prx.task()]} | {:error, :prx.posix()}),
-          (init :: :prx.task(), sh :: :prx.task() -> any)
+          (sh :: :prx.task() -> any)
         ) :: [:prx.task(), ...]
-  def task!(%Stdio{init: supervisor} = s, ops, initfun, onerrorfun)
+  def task!(%Stdio{init: supervisor}, ops, initfun, onerrorfun)
       when is_pid(supervisor) do
     case initfun.(supervisor) do
       {:ok, []} ->
@@ -119,7 +119,7 @@ defmodule Stdio.Op do
           error: :eagain
 
       {:ok, init} ->
-        run!(s, init, onerrorfun, ops)
+        run!(init, onerrorfun, ops)
 
       {:error, error} ->
         raise Stdio.OpError,
@@ -130,12 +130,11 @@ defmodule Stdio.Op do
   end
 
   @spec run!(
-          Stdio.t(),
           [:prx.task(), ...],
-          (init :: :prx.task(), sh :: :prx.task() -> any),
+          (sh :: :prx.task() -> any),
           [t | [t]]
         ) :: [:prx.task(), ...]
-  defp run!(%Stdio{} = supervisor, inits, onerrorfun, ops) do
+  defp run!(inits, onerrorfun, ops) do
     init = List.last(inits)
 
     case seq(init, ops, []) do
@@ -143,13 +142,7 @@ defmodule Stdio.Op do
         inits
 
       {:error, {error, {mod, fun, arg}, ops}} ->
-        parent =
-          Stdio.ProcessTree.__supervisor__(%Stdio.ProcessTree{
-            supervisor: supervisor,
-            pipeline: inits
-          })
-
-        onerrorfun.(parent, init)
+        onerrorfun.(init)
 
         raise Stdio.OpError,
           reason: error,

@@ -67,7 +67,7 @@ defmodule Stdio.Process do
 
   @impl true
   def onerror(_config) do
-    fn _init, sh ->
+    fn sh ->
       :prx.stop(sh)
     end
   end
@@ -82,15 +82,19 @@ defmodule Stdio.Process do
     #   global namespace
     #
     # The direct parent of the process created the PID namespace.
-    fn %Stdio.ProcessTree{pipeline: pipeline} = pstree ->
-      parent = Stdio.ProcessTree.__supervisor__(pstree)
+    fn %Stdio.ProcessTree{pipeline: pipeline} ->
       sh = List.last(pipeline)
 
-      case :prx.pidof(sh) do
-        :noproc ->
+      case {:prx.parent(sh), :prx.pidof(sh)} do
+        {:noproc, _} ->
+          # process exited or not a subprocess
           false
 
-        pid ->
+        {_, :noproc} ->
+          # process exited
+          false
+
+        {parent, pid} ->
           _ = subreap(parent, pid)
           true
       end

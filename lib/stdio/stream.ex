@@ -206,11 +206,10 @@ defmodule Stdio.Stream do
 
   defp stdio(
          %Stdio.Stream{
-           process:
-             %Stdio.ProcessTree{
-               supervisor: %Stdio{init: init},
-               pipeline: pipeline
-             } = pstree,
+           process: %Stdio.ProcessTree{
+             supervisor: %Stdio{init: init},
+             pipeline: pipeline
+           },
            stream_pid: stream_pid,
            status: :running
          } = state
@@ -219,8 +218,6 @@ defmodule Stdio.Stream do
 
     receive do
       :stream_eof ->
-        parent = Stdio.ProcessTree.__supervisor__(pstree)
-
         # XXX supervisor chain: attempting to close the process stdin
         # XXX sometimes crashes:
         # XXX
@@ -230,7 +227,7 @@ defmodule Stdio.Stream do
         # XXX possibly because its application isn't started
         result =
           try do
-            :prx.eof(parent, sh)
+            :prx.eof(sh)
           catch
             _, _ ->
               {:error, :esrch}

@@ -33,8 +33,8 @@ defmodule Stdio.MixProject do
 
   defp deps do
     [
-      {:alcove, "~> 0.40.2"},
-      {:prx, "~> 0.16.0"},
+      {:alcove, "~> 0.40.3"},
+      {:prx, "~> 0.16.1"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.1", only: [:dev], runtime: false},
       {:ex_doc, "~> 0.28", only: :dev, runtime: false},
