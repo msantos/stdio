@@ -180,8 +180,7 @@ defmodule Stdio do
   `:prx.parent/1`. For example, to signal the process group:
 
       supervisor = :prx.parent(sh)
-      pid = :prx.pidof(sh)
-      :prx.kill(supervisor, -pid, :SIGTERM)
+      :prx.kill(supervisor, 0, :SIGTERM)
 
   """
   @callback onerror(Keyword.t()) :: (sh :: :prx.task() -> any)
@@ -780,6 +779,7 @@ defmodule Stdio do
      :getpid,
      :kill,
      :setcpid,
+     :sigaction,
 
      # Linux
      :clone,

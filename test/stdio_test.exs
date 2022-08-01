@@ -337,6 +337,22 @@ defmodule StdioTest do
       :prx.stop(supervisor.init)
     end
   end
+
+  describe "signal" do
+    test "Supervise: signals are broadcast to subprocesses" do
+      result = Stdio.stream!("kill -HUP $PPID; sleep 111") |> Enum.to_list()
+      assert [termsig: :sighup] = result
+
+      result =
+        receive do
+          t -> t
+        after
+          0 -> :ok
+        end
+
+      assert :ok = result
+    end
+  end
 end
 
 defmodule StdioReapTest do

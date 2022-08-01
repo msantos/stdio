@@ -77,7 +77,7 @@ defmodule StdioRootlessTest do
     result =
       Stream.cycle([e])
       |> Stream.take(1_000)
-      |> Stdio.pipe!("sleep 900", Stdio.Rootless)
+      |> Stdio.pipe!("sleep 800", Stdio.Rootless)
       |> Enum.to_list()
 
     # XXX supervisor chain: sporadically does not return any data

@@ -67,7 +67,7 @@ defmodule StdioSupervisorTest do
         Stream.cycle([e])
         |> Stream.take(1_000)
         |> Stdio.pipe!(
-          "sleep 900",
+          "sleep 700",
           Stdio.with_supervisor(__MODULE__, supervisor)
         )
         |> Enum.to_list()

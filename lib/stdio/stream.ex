@@ -207,7 +207,6 @@ defmodule Stdio.Stream do
   defp stdio(
          %Stdio.Stream{
            process: %Stdio.ProcessTree{
-             supervisor: %Stdio{init: init},
              pipeline: pipeline
            },
            stream_pid: stream_pid,
@@ -219,7 +218,7 @@ defmodule Stdio.Stream do
     receive do
       :stream_eof ->
         # XXX supervisor chain: attempting to close the process stdin
-        # XXX sometimes crashes:
+        # XXX will crash if Supervise has exited due to pipe overflow:
         # XXX
         # XXX ** (exit) exited in: :gen_statem.call(#PID<0.604.0>, {:close, '\n'}, :infinity)
         # XXX   ** (EXIT) no process: the process is not alive or
@@ -238,9 +237,6 @@ defmodule Stdio.Stream do
             {[], state}
 
           # subprocess already exited
-          {:error, :esrch} ->
-            {[], %{state | status: :flush}}
-
           {:error, _} ->
             {[], %{state | status: :flush}}
         end
@@ -258,37 +254,12 @@ defmodule Stdio.Stream do
       {:stdin, ^sh, error} ->
         {[{:stderr, "#{inspect(error)}"}], %{state | status: :flush}}
 
-      {:signal, ^init, signal, _} ->
-        Stdio.Procfs.children(:prx.getpid(init))
-        |> Enum.each(fn pid ->
-          :prx.kill(init, pid, signal)
-        end)
-
+      {:signal, task, signal, _} ->
+        # Temporarily ignore the signal to prevent signal loops
+        {:ok, act} = :prx.sigaction(task, signal, :sig_ign)
+        _ = Stdio.Syscall.os().reap(task, signal)
+        _ = :prx.sigaction(task, signal, act)
         {[], state}
-
-      {:signal, _, _, _} ->
-        {[], state}
-
-      # Forward signal to container process group
-      {:EXIT, _, sig} ->
-        case :prx.pidof(sh) do
-          :noproc ->
-            {[], %{state | status: :flush}}
-
-          pid ->
-            _ = :prx.kill(init, -pid, signal(sig))
-            {[], %{state | status: :flush}}
-        end
-
-      {:stream_signal, sig} ->
-        case :prx.pidof(sh) do
-          :noproc ->
-            {[], %{state | status: :flush}}
-
-          pid ->
-            _ = :prx.kill(init, -pid, signal(sig))
-            {[], state}
-        end
 
       {:stream_stdin, e} ->
         :ok = :prx.stdin(sh, e)
@@ -366,10 +337,10 @@ defmodule Stdio.Stream do
       {:stream_stdin, _} ->
         {[], state}
 
-      {:exit_status, ^sh, status} ->
+      {:exit_status, _sh, status} ->
         {[{:exit_status, status}], %{state | flush_timeout: 0}}
 
-      {:termsig, ^sh, sig} ->
+      {:termsig, _sh, sig} ->
         {[{:termsig, sig}], %{state | flush_timeout: 0}}
     after
       flush_timeout ->
@@ -581,10 +552,4 @@ defmodule Stdio.Stream do
   end
 
   def stdio_drop(e, state), do: {[e], state}
-
-  defp signal(:normal), do: :SIGTERM
-  defp signal(:kill), do: :SIGKILL
-  defp signal(sig) when is_integer(sig), do: sig
-  defp signal(sig) when is_atom(sig), do: sig
-  defp signal(_), do: :SIGKILL
 end
