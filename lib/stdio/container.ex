@@ -117,7 +117,7 @@ defmodule Stdio.Container do
     fn init ->
       case :prx.clone(init, flags) do
         {:ok, sh} ->
-          {:ok, [sh]}
+          {:ok, [Stdio.ProcessTree.task(sh)]}
 
         {:error, _} = error ->
           error

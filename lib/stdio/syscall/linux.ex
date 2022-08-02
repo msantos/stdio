@@ -46,4 +46,54 @@ defmodule Stdio.Syscall.Linux do
           end}
        ]}
     ]
+
+  @doc """
+  Terminating descendents of a supervisor process
+  """
+  @impl true
+  def reap(%Stdio.ProcessTree{supervisor: %Stdio{init: supervisor}} = pstree, signal),
+    do: reap(pstree, :prx.getpid(supervisor), signal)
+
+  @doc ~S"""
+  Terminate descendents of a process.
+
+  reap signals subprocesses of a process identified by PID. If the
+  process called `PR_SET_CHILD_SUBREAPER`, background and daemonized
+  subprocesses will also be terminated.
+
+  Note: terminating subprocesses using this method is subject to race
+  conditions:
+
+  * new processes may have been forked
+
+  * processes may have exited and unrelated processes assigned the PID
+
+  * processes may ignore some signals
+
+  * processes may not immediately exit after signalling
+  """
+  @impl true
+  def reap(%Stdio.ProcessTree{supervisor: %Stdio{init: supervisor}}, pid, signal) do
+    reaper = fn
+      subprocess, count ->
+        case :prx.kill(supervisor, subprocess, signal) do
+          :ok ->
+            {[], count + 1}
+
+          {:error, :esrch} ->
+            # subprocess exited
+            {[], count + 1}
+
+          {:error, _} ->
+            # einval: invalid signal
+            # eperm: user does not have permission to signal process
+            # other: unexpected error: an undocumented value for errno, probably
+            # an internal error
+            {:halt, count}
+        end
+    end
+
+    procfs = Application.get_env(:stdio, :procfs, procfs())
+    Stdio.Procfs.__reap__(pid, 0, reaper, procfs)
+  end
 end

@@ -149,7 +149,7 @@ defmodule StdioSupervisorTest do
   defp __fork__(init, n, inits) do
     case :prx.fork(init) do
       {:ok, task} ->
-        __fork__(task, n - 1, [task | inits])
+        __fork__(task, n - 1, [Stdio.ProcessTree.task(task) | inits])
 
       {:error, _} = error ->
         for pid <- Enum.reverse(inits), do: :prx.stop(pid)

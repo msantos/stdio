@@ -106,9 +106,10 @@ defmodule Stdio.Op do
   @spec task!(
           Stdio.t(),
           ops :: [t | [t]],
-          (init :: :prx.task() -> {:ok, pipeline :: [:prx.task()]} | {:error, :prx.posix()}),
+          (init :: :prx.task() ->
+             {:ok, pipeline :: Stdio.pipeline()} | {:error, :prx.posix()}),
           (sh :: :prx.task() -> any)
-        ) :: [:prx.task(), ...]
+        ) :: Stdio.pipeline()
   def task!(%Stdio{init: supervisor}, ops, initfun, onerrorfun)
       when is_pid(supervisor) do
     case initfun.(supervisor) do
@@ -130,12 +131,12 @@ defmodule Stdio.Op do
   end
 
   @spec run!(
-          [:prx.task(), ...],
+          Stdio.pipeline(),
           (sh :: :prx.task() -> any),
           [t | [t]]
-        ) :: [:prx.task(), ...]
+        ) :: Stdio.pipeline()
   defp run!(inits, onerrorfun, ops) do
-    init = List.last(inits)
+    init = List.last(inits).task
 
     case seq(init, ops, []) do
       :ok ->

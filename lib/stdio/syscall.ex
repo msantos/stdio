@@ -16,12 +16,12 @@ defmodule Stdio.Syscall do
   @doc """
   Terminate descendents of a supervisor process.
   """
-  @callback reap(:prx.task(), atom) :: :ok | {:error, :prx.posix()}
+  @callback reap(Stdio.ProcessTree.t(), atom) :: :ok | {:error, :prx.posix()}
 
   @doc """
   Terminate a process subtree (descendents of a child process) of the supervisor.
   """
-  @callback reap(:prx.task(), :prx.pid_t(), atom) :: :ok | {:error, :prx.posix()}
+  @callback reap(Stdio.ProcessTree.t(), :prx.pid_t(), atom) :: :ok | {:error, :prx.posix()}
 
   @doc """
   Path to procfs file system
@@ -101,54 +101,73 @@ defmodule Stdio.Syscall do
   @doc """
   Terminating descendents of a supervisor process
   """
-  def reap(task, signal), do: reap(task, :prx.getpid(task), signal)
+  def reap(
+        %Stdio.ProcessTree{supervisor: %Stdio{init: supervisor}, pipeline: [%{pid: pid}]},
+        signal
+      ) do
+    signal(supervisor, pid, signal)
+  end
+
+  def reap(%Stdio.ProcessTree{supervisor: %Stdio{init: supervisor}, pipeline: pipeline}, signal) do
+    pipeline
+    |> Enum.reverse()
+    |> Enum.each(fn task ->
+      case :prx.parent(task.task) do
+        :noproc ->
+          signal(supervisor, task.pid, signal)
+
+        pid ->
+          signal(pid, task.pid, signal)
+      end
+    end)
+  end
 
   @doc ~S"""
   Terminate descendents of a process.
 
-  reap signals subprocesses of a process identified by PID. If the
-  process called `PR_SET_CHILD_SUBREAPER`, background and daemonized
-  subprocesses will also be terminated.
-
-  Note: terminating subprocesses using this method is subject to race
-  conditions:
-
-  * new processes may have been forked
-
-  * processes may have exited and unrelated processes assigned the PID
-
-  * processes may ignore some signals
-
-  * processes may not immediately exit after signalling
+  Signals the process group for each child process.
   """
-  def reap(task, pid, signal) do
-    reaper = fn
-      subprocess, count ->
-        case :prx.kill(task, subprocess, signal) do
-          :ok ->
-            {[], count + 1}
+  def reap(
+        %Stdio.ProcessTree{supervisor: %Stdio{init: supervisor}, pipeline: pipeline},
+        pid,
+        signal
+      ) do
+    result =
+      pipeline
+      |> Enum.reduce({[], false}, fn
+        %{pid: ^pid} = task, {_, false} ->
+          {[task], true}
 
-          {:error, :esrch} ->
-            # subprocess exited
-            {[], count + 1}
+        task, {acc, true} ->
+          {[task | acc], true}
 
-          {:error, :einval} ->
-            # invalid signal: abort
-            {:halt, count}
+        _, {acc, false} ->
+          {acc, false}
+      end)
 
-          {:error, :eperm} ->
-            # user does not have permission to signal process
-            {:halt, count}
+    case result do
+      {_, false} ->
+        {:error, :esrch}
 
-          {:error, _} ->
-            # unexpected error: an undocumented value for errno, probably
-            # an internal error
-            {:halt, count}
-        end
+      {pids, true} ->
+        pids
+        |> Enum.each(fn task ->
+          signal(supervisor, task.pid, signal)
+        end)
     end
+  end
 
-    procfs = Application.get_env(:stdio, :procfs, procfs())
-    Stdio.Procfs.__reap__(pid, 0, reaper, procfs)
+  defp signal(task, pid, sig) do
+    case :prx.kill(task, -pid, sig) do
+      {:error, :esrch} ->
+        :prx.kill(task, pid, sig)
+
+      {:error, _} = error ->
+        error
+
+      :ok ->
+        :ok
+    end
   end
 
   @doc """

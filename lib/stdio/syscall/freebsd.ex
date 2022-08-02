@@ -21,11 +21,11 @@ defmodule Stdio.Syscall.FreeBSD do
   end
 
   @impl true
-  def reap(task, signal) do
+  def reap(%Stdio.ProcessTree{supervisor: %Stdio{init: supervisor}}, signal) do
     with {:ok, signum} <- signal_constant(signal),
          cstruct = procctl_reaper_kill(signum),
          {:ok, _, _} <-
-           :prx.procctl(task, 0, 0, :PROC_REAP_KILL, cstruct) do
+           :prx.procctl(supervisor, 0, 0, :PROC_REAP_KILL, cstruct) do
       :ok
     end
   end
@@ -33,11 +33,11 @@ defmodule Stdio.Syscall.FreeBSD do
   @reaper_kill_subtree 0x00000002
 
   @impl true
-  def reap(task, pid, signal) do
+  def reap(%Stdio.ProcessTree{supervisor: %Stdio{init: supervisor}}, pid, signal) do
     with {:ok, signum} <- signal_constant(signal),
          cstruct = procctl_reaper_kill(signum, @reaper_kill_subtree, pid),
          {:ok, _, _} <-
-           :prx.procctl(task, 0, 0, :PROC_REAP_KILL, cstruct) do
+           :prx.procctl(supervisor, 0, 0, :PROC_REAP_KILL, cstruct) do
       :ok
     end
   end

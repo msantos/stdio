@@ -341,7 +341,17 @@ defmodule StdioTest do
   describe "signal" do
     test "Supervise: signals are broadcast to subprocesses" do
       result = Stdio.stream!("kill -HUP $PPID; sleep 111") |> Enum.to_list()
-      assert [termsig: :sighup] = result
+
+      match =
+        case(result) do
+          [termsig: :sighup] ->
+            :ok
+
+          [exit_status: 129] ->
+            :ok
+        end
+
+      assert :ok = match
 
       result =
         receive do
@@ -383,7 +393,7 @@ defmodule StdioReapTest do
 
     # race: PID may be of sh or sleep
     assert [_pid] = Stdio.Procfs.children(:prx.getpid(supervisor.init), procfs)
-    :ok = Stdio.reap(supervisor)
+    :ok = Stdio.reap(%Stdio.ProcessTree{supervisor: supervisor})
 
     assert [] = Stdio.Procfs.children(:prx.getpid(supervisor.init), procfs)
     :prx.stop(supervisor.init)
@@ -399,8 +409,12 @@ defmodule StdioReapTest do
   end
 
   test "reap: atexit function" do
-    atexit = fn init, _sh, _state ->
-      Stdio.reap(%Stdio{init: init}, :prx.getpid(init), :SIGKILL)
+    atexit = fn init, pipeline, _state ->
+      Stdio.reap(
+        %Stdio.ProcessTree{supervisor: %Stdio{init: init}, pipeline: pipeline},
+        :prx.getpid(init),
+        :SIGKILL
+      )
     end
 
     {:ok, supervisor} = Stdio.supervisor(atexit)

@@ -52,11 +52,11 @@ defmodule Stdio.Rootless do
          # standard calls for supervisors: excludes fork
          :clone,
          :close,
-         :close,
          :exit,
          :getpid,
          :kill,
          :setcpid,
+         :sigaction,
 
          # lookup UID/GID for user map in /proc/[pid]/{uid_map,gid_map}
          :getgid,
@@ -97,7 +97,7 @@ defmodule Stdio.Rootless do
                {:ok, _} <- Stdio.supervise(cinit) do
             case :prx.fork(cinit) do
               {:ok, sh} ->
-                {:ok, [cinit, sh]}
+                {:ok, [Stdio.ProcessTree.task(cinit), Stdio.ProcessTree.task(sh)]}
 
               {:error, _} = error ->
                 :prx.stop(cinit)

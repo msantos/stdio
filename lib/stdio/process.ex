@@ -57,7 +57,7 @@ defmodule Stdio.Process do
     fn init ->
       case :prx.fork(init) do
         {:ok, sh} ->
-          {:ok, [sh]}
+          {:ok, [Stdio.ProcessTree.task(sh)]}
 
         {:error, _} = error ->
           error
@@ -74,7 +74,7 @@ defmodule Stdio.Process do
 
   @impl true
   def onexit(_config) do
-    # The shell process is in a PID namespace:
+    # If the shell process is in a PID namespace:
     #
     # * calling :prx.pidof(sh) will return the namespace PID, e.g., 2
     # * the supervisor process is in the global PID namespace
@@ -83,7 +83,7 @@ defmodule Stdio.Process do
     #
     # The direct parent of the process created the PID namespace.
     fn %Stdio.ProcessTree{pipeline: pipeline} ->
-      sh = List.last(pipeline)
+      sh = List.last(pipeline).task
 
       case {:prx.parent(sh), :prx.pidof(sh)} do
         {:noproc, _} ->

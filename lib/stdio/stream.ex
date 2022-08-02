@@ -79,7 +79,7 @@ defmodule Stdio.Stream do
     endfun = fn %Stdio.Stream{
                   process: %Stdio.ProcessTree{pipeline: pipeline} = process
                 } ->
-      for pid <- Enum.reverse(pipeline), do: :prx.stop(pid)
+      for pid <- Enum.reverse(pipeline), do: :prx.stop(pid.task)
       Stdio.__atexit__(process)
     end
 
@@ -184,7 +184,7 @@ defmodule Stdio.Stream do
         process: %Stdio.ProcessTree{pipeline: pipeline} = process,
         stream_pid: nil
       } ->
-        for pid <- Enum.reverse(pipeline), do: :prx.stop(pid)
+        for pid <- Enum.reverse(pipeline), do: :prx.stop(pid.task)
         Stdio.__atexit__(process)
 
       %Stdio.Stream{
@@ -193,7 +193,7 @@ defmodule Stdio.Stream do
       } ->
         Process.unlink(stream_pid)
         Process.exit(stream_pid, :kill)
-        for pid <- Enum.reverse(pipeline), do: :prx.stop(pid)
+        for pid <- Enum.reverse(pipeline), do: :prx.stop(pid.task)
         Stdio.__atexit__(process)
     end
 
@@ -206,14 +206,15 @@ defmodule Stdio.Stream do
 
   defp stdio(
          %Stdio.Stream{
-           process: %Stdio.ProcessTree{
-             pipeline: pipeline
-           },
+           process:
+             %Stdio.ProcessTree{
+               pipeline: pipeline
+             } = pstree,
            stream_pid: stream_pid,
            status: :running
          } = state
        ) do
-    sh = List.last(pipeline)
+    sh = List.last(pipeline).task
 
     receive do
       :stream_eof ->
@@ -257,7 +258,7 @@ defmodule Stdio.Stream do
       {:signal, task, signal, _} ->
         # Temporarily ignore the signal to prevent signal loops
         {:ok, act} = :prx.sigaction(task, signal, :sig_ign)
-        _ = Stdio.Syscall.os().reap(task, signal)
+        _ = Stdio.Syscall.os().reap(pstree, signal)
         _ = :prx.sigaction(task, signal, act)
         {[], state}
 
@@ -315,7 +316,7 @@ defmodule Stdio.Stream do
            flush_timeout: flush_timeout
          } = state
        ) do
-    sh = List.last(pipeline)
+    sh = List.last(pipeline).task
 
     receive do
       :stream_eof ->

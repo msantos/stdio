@@ -1,13 +1,16 @@
 defmodule Stdio do
   defstruct init: :noproc, atexit: :shutdown, state: %{}
 
+  @type pipeline :: [%{task: :prx.task(), pid: :prx.pid_t()}]
+
   @type t :: %__MODULE__{
           init: :prx.task() | :noproc,
           atexit:
             :shutdown
             | :noshutdown
             | :noreap
-            | (init :: :prx.task(), pipeline :: [:prx.task()], map() -> any),
+            | (init :: :prx.task(), pipeline :: pipeline, map() ->
+                 any),
           state: map()
         }
 
@@ -19,8 +22,21 @@ defmodule Stdio do
 
     @type t :: %__MODULE__{
             supervisor: Stdio.t(),
-            pipeline: [:prx.task()]
+            pipeline: Stdio.pipeline()
           }
+
+    def task(task) do
+      case :prx.pidof(task) do
+        :noproc ->
+          raise Stdio.OpError,
+            reason: :badinit,
+            op: {Stdio, :init, []},
+            error: :einval
+
+        pid ->
+          %{task: task, pid: pid}
+      end
+    end
   end
 
   @moduledoc ~S"""
@@ -162,7 +178,7 @@ defmodule Stdio do
   In a PID namespace, this process will be the `init` process or PID 1.
   """
   @callback init(Keyword.t()) ::
-              (:prx.task() -> {:ok, [:prx.task()]} | {:error, :prx.posix()})
+              (:prx.task() -> {:ok, pipeline} | {:error, :prx.posix()})
 
   @doc """
   Function run on operation error.
@@ -268,7 +284,9 @@ defmodule Stdio do
           {:task, (Keyword.t() -> {:ok, Stdio.t()} | {:error, :prx.posix()})}
           | {:init,
              (Keyword.t() ->
-                (init :: :prx.task() -> {:ok, pipeline :: [:prx.task()]} | {:error, :prx.posix()}))}
+                (init :: :prx.task() ->
+                   {:ok, pipeline :: pipeline}
+                   | {:error, :prx.posix()}))}
           | {:ops, (Keyword.t() -> [Stdio.Op.t()])}
           | {:onerror, (Keyword.t() -> (sh :: :prx.task() -> any))}
           | {:onexit, (Keyword.t() -> (Stdio.ProcessTree.t() -> boolean()))}
@@ -641,7 +659,9 @@ defmodule Stdio do
           opsfun :: (Keyword.t() -> [Stdio.Op.t()]),
           initfun ::
             (Keyword.t() ->
-               (init :: :prx.task() -> {:ok, pipeline :: [:prx.task()]} | {:error, :prx.posix()})),
+               (init :: :prx.task() ->
+                  {:ok, pipeline :: pipeline}
+                  | {:error, :prx.posix()})),
           onerrorfun :: (Keyword.t() -> (sh :: :prx.task() -> any))
         ) :: {:ok, Stdio.ProcessTree.t()} | {:error, :prx.posix()}
   def __fork__(%Stdio{} = supervisor, command, config, opsfun, initfun, onerrorfun) do
@@ -661,7 +681,7 @@ defmodule Stdio do
         onerrorfun.(config)
       )
 
-    sh = List.last(pipeline)
+    sh = List.last(pipeline).task
     {arg0, argv} = argv(command)
 
     errno =
@@ -701,10 +721,12 @@ defmodule Stdio do
     flush(init)
   end
 
-  def __atexit__(%Stdio.ProcessTree{
-        supervisor: %Stdio{init: init, atexit: :shutdown} = supervisor
-      }) do
-    reap(supervisor, :SIGKILL)
+  def __atexit__(
+        %Stdio.ProcessTree{
+          supervisor: %Stdio{init: init, atexit: :shutdown}
+        } = pstree
+      ) do
+    reap(pstree, :SIGKILL)
     :prx.stop(init)
     flush(init)
   end
@@ -751,9 +773,9 @@ defmodule Stdio do
   @doc ~S"""
   Terminate descendents of a supervisor process.
   """
-  @spec reap(supervisor :: Stdio.t(), atom) :: :ok
-  def reap(%Stdio{init: init}, signal \\ :SIGKILL) when is_pid(init) do
-    _ = Stdio.Syscall.os().reap(init, signal)
+  @spec reap(Stdio.ProcessTree.t(), atom) :: :ok
+  def reap(%Stdio.ProcessTree{} = pstree, signal \\ :SIGKILL) do
+    _ = Stdio.Syscall.os().reap(pstree, signal)
     :ok
   end
 
@@ -765,9 +787,9 @@ defmodule Stdio do
   Background and daemonized subprocesses will also be terminated if
   supported by the platform.
   """
-  @spec reap(supervisor :: Stdio.t(), :prx.pid_t(), atom) :: :ok
-  def reap(%Stdio{init: init}, pid, signal) when is_pid(init) do
-    _ = Stdio.Syscall.os().reap(init, pid, signal)
+  @spec reap(Stdio.ProcessTree.t(), :prx.pid_t(), atom) :: :ok
+  def reap(%Stdio.ProcessTree{} = pstree, pid, signal) do
+    _ = Stdio.Syscall.os().reap(pstree, pid, signal)
     :ok
   end
 
@@ -797,7 +819,8 @@ defmodule Stdio do
           :shutdown
           | :noshutdown
           | :noreap
-          | (init :: :prx.task(), pipeline :: [:prx.task()], state :: map() -> any),
+          | (init :: :prx.task(), pipeline :: pipeline, state :: map() ->
+               any),
           [:prx.call()] | {:allow, [:prx.call()]} | {:deny, [:prx.call()]}
         ) :: {:ok, Stdio.t()} | {:error, :prx.posix()}
   def supervisor(atexit \\ :shutdown, filter \\ @allowed_calls) do
@@ -839,7 +862,8 @@ defmodule Stdio do
           :shutdown
           | :noshutdown
           | :noreap
-          | (init :: :prx.task(), pipeline :: [:prx.task()], state :: map() -> any),
+          | (init :: :prx.task(), pipeline :: pipeline, state :: map() ->
+               any),
           [:prx.call()] | {:allow, [:prx.call()]} | {:deny, [:prx.call()]}
         ) :: {:ok, Stdio.t()} | {:error, :prx.posix()}
   def supervise(init, atexit \\ :shutdown, filter \\ @allowed_calls) do
