@@ -116,6 +116,9 @@ defmodule Stdio.Rootless do
   end
 
   @impl true
+  def onexit(config), do: Stdio.Container.onexit(config)
+
+  @impl true
   def ops(config) do
     hostname = Keyword.get(config, :hostname, "stdio")
     priv_dir = Stdio.__basedir__()

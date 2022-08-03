@@ -49,6 +49,19 @@ defmodule Stdio.Process do
 
   """
 
+  @doc """
+  Attempt to send a signal to a process group.
+  """
+  def signal(task, pid, signal) do
+    case :prx.kill(task, -pid, signal) do
+      {:error, :esrch} ->
+        :prx.kill(task, pid, signal)
+
+      _ ->
+        :ok
+    end
+  end
+
   @impl true
   def task(_config), do: Stdio.supervisor()
 
@@ -74,40 +87,25 @@ defmodule Stdio.Process do
 
   @impl true
   def onexit(_config) do
-    # If the shell process is in a PID namespace:
-    #
-    # * calling :prx.pidof(sh) will return the namespace PID, e.g., 2
-    # * the supervisor process is in the global PID namespace
-    # * calling :prx.kill(init, pid) will attempt to kill PID 2 in the
-    #   global namespace
-    #
-    # The direct parent of the process created the PID namespace.
-    fn %Stdio.ProcessTree{pipeline: pipeline} ->
-      sh = List.last(pipeline).task
+    fn %Stdio.ProcessTree{
+         supervisor: %Stdio{init: supervisor},
+         pipeline: pipeline
+       } ->
+      sh = List.last(pipeline)
 
-      case {:prx.parent(sh), :prx.pidof(sh)} do
-        {:noproc, _} ->
-          # process exited or not a subprocess
-          false
+      status =
+        case :prx.pidof(sh.task) do
+          :noproc ->
+            # process exited
+            false
 
-        {_, :noproc} ->
-          # process exited
-          false
+          _ ->
+            true
+        end
 
-        {parent, pid} ->
-          _ = subreap(parent, pid)
-          true
-      end
-    end
-  end
+      _ = signal(supervisor, sh.pid, :SIGKILL)
 
-  defp subreap(parent, pid) do
-    case :prx.kill(parent, -pid, :SIGKILL) do
-      {:error, :esrch} ->
-        :prx.kill(parent, pid, :SIGKILL)
-
-      _ ->
-        :ok
+      status
     end
   end
 
