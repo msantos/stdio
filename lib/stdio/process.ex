@@ -50,15 +50,34 @@ defmodule Stdio.Process do
   """
 
   @doc """
-  Attempt to send a signal to a process group.
+  Signal a process by process group, falling back to PID
   """
-  def signal(task, pid, signal) do
+  @spec signal(:prx.task(), :prx.pid_t(), pos_integer | atom) :: :ok | {:error, :prx.posix()}
+  def signal(task, pid, signal) when pid > 0 do
     case :prx.kill(task, -pid, signal) do
       {:error, :esrch} ->
         :prx.kill(task, pid, signal)
 
       _ ->
         :ok
+    end
+  end
+
+  @doc """
+  Test if a Stdio process is running
+  """
+  # Tests if the system process is running:
+  #
+  # Using Process.alive?/1 would have a race condition where the elixir
+  # process exists but the system process has exited.
+  @spec alive?(:prx.task()) :: boolean
+  def alive?(task) do
+    case :prx.pidof(task) do
+      :noproc ->
+        false
+
+      _ ->
+        true
     end
   end
 
@@ -93,18 +112,8 @@ defmodule Stdio.Process do
        } ->
       sh = List.last(pipeline)
 
-      status =
-        case :prx.pidof(sh.task) do
-          :noproc ->
-            # process exited
-            false
-
-          _ ->
-            true
-        end
-
+      status = alive?(sh.task)
       _ = signal(supervisor, sh.pid, :SIGKILL)
-
       status
     end
   end

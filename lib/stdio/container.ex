@@ -127,30 +127,22 @@ defmodule Stdio.Container do
 
   @impl true
   def onexit(_config) do
-    # If the shell process is in a PID namespace:
+    # The shell process is the first process in the PID namespace:
     #
-    # * calling :prx.pidof(sh) will return the namespace PID, e.g., 2
+    # * calling :prx.pidof(sh) will return the PID in the global namespace
+    #
+    # * calling :prx.getpid(sh) will return the namespaced PID, e.g., 1
+    #
     # * the supervisor process is in the global PID namespace
-    # * calling :prx.kill(init, pid) will attempt to kill PID 2 in the
+    #
+    # * calling :prx.kill(init, pid) will attempt to kill PID 1 in the
     #   global namespace
     #
     # The direct parent of the process created the PID namespace.
-    fn %Stdio.ProcessTree{pipeline: pipeline} ->
-      sh = List.last(pipeline).task
-
-      case {:prx.parent(sh), :prx.pidof(sh)} do
-        {:noproc, _} ->
-          # process exited or not a subprocess
-          false
-
-        {_, :noproc} ->
-          # process exited
-          false
-
-        {parent, pid} ->
-          _ = Stdio.Process.signal(parent, pid, :SIGKILL)
-          true
-      end
+    fn %Stdio.ProcessTree{supervisor: %Stdio{init: supervisor}, pipeline: [sh]} ->
+      status = Stdio.Process.alive?(sh.task)
+      _ = Stdio.Process.signal(supervisor, sh.pid, :SIGKILL)
+      status
     end
   end
 

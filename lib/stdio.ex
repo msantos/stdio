@@ -710,8 +710,6 @@ defmodule Stdio do
   defp argv(command) when is_list(command), do: {List.first(command, ""), command}
   defp argv({arg0, argv} = command) when is_binary(arg0) and is_list(argv), do: command
 
-  def __atexit__(%Stdio.ProcessTree{supervisor: %Stdio{init: :noproc}}), do: :ok
-
   def __atexit__(%Stdio.ProcessTree{supervisor: %Stdio{init: init, atexit: :noshutdown}}) do
     flush(init)
   end
@@ -872,8 +870,8 @@ defmodule Stdio do
          {:ok, _} <- :prx.sigaction(init, :sigsegv, :sig_dfl),
          :ok <- Stdio.Syscall.os().setproctitle(init, "Supervise") do
       _ = :prx.setopt(init, :signaloneof, 9)
+      _ = :prx.setopt(init, :flowcontrol, 1)
       :ok = :prx.filter(init, filter, [])
-      _ = :prx.setcpid(init, :flowcontrol, 1)
       {:ok, %Stdio{init: init, atexit: atexit}}
     end
   end

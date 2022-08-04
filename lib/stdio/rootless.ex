@@ -116,7 +116,35 @@ defmodule Stdio.Rootless do
   end
 
   @impl true
-  def onexit(config), do: Stdio.Container.onexit(config)
+  def onexit(_config) do
+    # The shell process is in a PID namespace:
+    #
+    # * calling :prx.pidof(sh) will return the namespace PID, e.g., 2
+    #
+    # * the supervisor process is in the global PID namespace
+    #
+    # * calling :prx.kill(init, pid) will attempt to kill PID 2 in the
+    #   global namespace
+    #
+    # The direct parent of the process created the PID namespace.
+    fn %Stdio.ProcessTree{supervisor: %Stdio{init: supervisor}, pipeline: [init, sh]} ->
+      alive = Stdio.Process.alive?(init.task)
+      status = alive and Stdio.Process.alive?(sh.task)
+
+      _ =
+        case alive do
+          true ->
+            # namespace: signal the PID namespace
+            :prx.kill(init.task, -1, :SIGKILL)
+
+          false ->
+            # global: signal the init process
+            Stdio.Process.signal(supervisor, init.pid, :SIGKILL)
+        end
+
+      status
+    end
+  end
 
   @impl true
   def ops(config) do

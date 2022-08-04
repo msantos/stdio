@@ -363,6 +363,13 @@ defmodule StdioTest do
       assert :ok = result
     end
   end
+
+  test "reap: terminate background process group" do
+    result = Stdio.stream!("sleep 7391 &") |> Enum.to_list()
+    assert [{:exit_status, 0}] = result
+    result = Stdio.stream!("pgrep -x -f \"sleep 7391\"") |> Enum.to_list()
+    assert [exit_status: 1] = result
+  end
 end
 
 defmodule StdioReapTest do
