@@ -168,19 +168,16 @@ defmodule StdioRootlessTest do
     assert [{:exit_status, 0}] = result
   end
 
-  @tag :skip
-  test "sh: setuid/shared network" do
+  test "sh: host network" do
     result =
       Stdio.stream!(
-        "ping -c 1 127.0.0.1",
+        "curl -s -f http://1.1.1.1/",
         Stdio.Rootless,
-        setuid: true,
         net: :host
       )
       |> Enum.to_list()
 
-    # [stdout: <<"PING 127.0.0.1", _::binary>>, exit_status: 0]
-    assert {:stdout, <<"PING 127.0.0.1", _::binary>>} = List.first(result)
+    # [stdout: "<html>\r\n<head>...", exit_status: 0]
     assert {:exit_status, 0} = List.last(result)
   end
 end

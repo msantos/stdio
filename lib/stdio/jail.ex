@@ -63,7 +63,7 @@ defmodule Stdio.Jail do
 
   @impl true
   def task(_config) do
-    Stdio.supervisor(:noreap)
+    Stdio.supervisor()
   end
 
   @impl true

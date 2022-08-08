@@ -105,7 +105,7 @@ defmodule Stdio.Syscall do
         %Stdio.ProcessTree{supervisor: %Stdio{init: supervisor}, pipeline: [%{pid: pid}]},
         signal
       ) do
-    signal(supervisor, pid, signal)
+    Stdio.Process.signal(supervisor, pid, signal)
   end
 
   def reap(%Stdio.ProcessTree{supervisor: %Stdio{init: supervisor}, pipeline: pipeline}, signal) do
@@ -114,10 +114,10 @@ defmodule Stdio.Syscall do
     |> Enum.each(fn task ->
       case :prx.parent(task.task) do
         :noproc ->
-          signal(supervisor, task.pid, signal)
+          Stdio.Process.signal(supervisor, task.pid, signal)
 
         pid ->
-          signal(pid, task.pid, signal)
+          Stdio.Process.signal(pid, task.pid, signal)
       end
     end)
   end
@@ -152,21 +152,8 @@ defmodule Stdio.Syscall do
       {pids, true} ->
         pids
         |> Enum.each(fn task ->
-          signal(supervisor, task.pid, signal)
+          Stdio.Process.signal(supervisor, task.pid, signal)
         end)
-    end
-  end
-
-  defp signal(task, pid, sig) do
-    case :prx.kill(task, -pid, sig) do
-      {:error, :esrch} ->
-        :prx.kill(task, pid, sig)
-
-      {:error, _} = error ->
-        error
-
-      :ok ->
-        :ok
     end
   end
 

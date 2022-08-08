@@ -223,6 +223,124 @@ graph LR
     end
 ```
 
+## Examples
+
+### inetd
+
+An `inetd(8)` server adapted from the [Task and
+gen_tcp](https://elixir-lang.org/getting-started/mix-otp/task-and-gen-tcp.html)
+echo server example in the Elixir documentation to fork() a system
+process.
+
+To run from iex:
+
+```elixir
+iex> Inetd.Server.start([
+...> %{ip: "::", port: 7070, command: "cat -n"},
+...> %{ip: "127.0.0.1", port: 7071, command: "stdbuf -o0 tr [A-Z] [a-z]"}
+...> ])
+```
+
+```elixir
+defmodule Inetd.Server do
+  require Logger
+
+  def start(spec) do
+    children =
+      spec
+      |> Enum.map(fn %{port: port, command: command} = m ->
+        {:ok, ip} = :inet_parse.address(String.to_charlist(Map.get(m, :ip, "::")))
+        behaviour = Map.get(m, :behaviour, Stdio.Rootless)
+
+        Supervisor.child_spec(
+          {Task, fn -> Inetd.Server.accept(ip, port, command, behaviour) end},
+          id: {ip, port},
+          restart: :permanent
+        )
+      end)
+
+    children = [{Task.Supervisor, name: Inetd.TaskSupervisor}] ++ children
+
+    opts = [strategy: :one_for_one, name: Inetd.Supervisor]
+    Supervisor.start_link(children, opts)
+  end
+
+  @doc """
+  Starts accepting connections on the given `port`.
+  """
+  def accept(ip, port, command, behaviour) do
+    {:ok, socket} =
+      :gen_tcp.listen(
+        port,
+        [:binary, packet: :line, active: false, reuseaddr: true, ip: ip]
+      )
+
+    Logger.info("Accepting connections on port #{port}")
+    loop_acceptor(socket, command, behaviour)
+  end
+
+  defp loop_acceptor(socket, command, behaviour) do
+    {:ok, client} = :gen_tcp.accept(socket)
+
+    {:ok, pid} =
+      Task.Supervisor.start_child(Inetd.TaskSupervisor, fn ->
+        serve(client, command, behaviour)
+      end)
+
+    :ok = :gen_tcp.controlling_process(client, pid)
+    loop_acceptor(socket, command, behaviour)
+  end
+
+  defp serve(socket, command, behaviour) do
+    Stream.resource(
+      fn -> socket end,
+      fn socket -> read_line(socket) end,
+      fn socket -> :gen_tcp.close(socket) end
+    )
+    |> Stdio.pipe!(command, behaviour)
+    |> Stream.transform(socket, fn data, socket ->
+      write_line(data, socket)
+    end)
+    |> Stream.run()
+  end
+
+  defp read_line(socket) do
+    case :gen_tcp.recv(socket, 0) do
+      {:ok, data} ->
+        {[data], socket}
+
+      {:error, _} ->
+        {:halt, socket}
+    end
+  end
+
+  defp write_line({:stdout, line}, socket) do
+    case :gen_tcp.send(socket, line) do
+      :ok ->
+        {[], socket}
+
+      {:error, _} ->
+        {:halt, socket}
+    end
+  end
+
+  defp write_line({:stderr, line}, socket) do
+    case :gen_tcp.send(socket, line) do
+      :ok ->
+        {[], socket}
+
+      {:error, _} ->
+        {:halt, socket}
+    end
+  end
+
+  defp write_line({msg, _} = data, socket) when msg in [:exit_status, :termsig] do
+    Logger.info("#{inspect(data)}")
+    {:halt, socket}
+  end
+end
+```
+
 ## Documentation
 
 Documentation is available on [hexdocs](https://hexdocs.pm/stdio/).
