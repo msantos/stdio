@@ -46,9 +46,8 @@ defmodule Stdio do
 
   `Stdio` manages system processes. The process standard output
   (`stdout`) and standard error (`stderr`) are represented as `Stream`'s
-  of `t:stdio/0` tuples.  Standard input (`stdin`) can be piped into
-  using a `binary` stream.
-
+  of `t:stdio/0` tuples.  The process standard input (`stdin`) can be
+  read from a a `binary` stream.
 
   * system processes run as [foreground
     processes](https://jdebp.uk/FGA/unix-daemon-design-mistakes-to-avoid.html)
@@ -66,7 +65,7 @@ defmodule Stdio do
       iex> Stdio.stream!("echo hello; echo world >&2") |> Enum.to_list()
       [stdout: "hello\n", stderr: "world\n", exit_status: 0]
 
-  ## Piping stdin
+  ## Piping to stdin
 
   An example of using a system process to transform a stream using
   `Stdio.pipe!/2`:
@@ -162,7 +161,7 @@ defmodule Stdio do
   """
 
   @doc """
-  Function to create a system supervisor for the stream.
+  Function to create a system supervisor for the `Stdio` stream.
 
   Create a task using `:prx.fork/0` and configured as a process
   supervisor.
@@ -867,6 +866,8 @@ defmodule Stdio do
   def supervise(init, atexit \\ :shutdown, filter \\ @allowed_calls) do
     with :ok <- Stdio.Syscall.os().subreaper(init),
          {:ok, _} <- :prx.sigaction(init, :sigpipe, :sig_ign),
+         {:ok, _} <- :prx.sigaction(init, :sigill, :sig_dfl),
+         {:ok, _} <- :prx.sigaction(init, :sigbus, :sig_dfl),
          {:ok, _} <- :prx.sigaction(init, :sigsegv, :sig_dfl),
          :ok <- Stdio.Syscall.os().setproctitle(init, "Supervise") do
       _ = :prx.setopt(init, :signaloneof, 9)

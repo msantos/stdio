@@ -3,7 +3,7 @@
 Stream standard I/O from system processes.
 
 Reliably reap, restrict and isolate system tasks:
-[Stdio](https://hexdocs.pm/stdio/) is a control plane for processes.
+[Stdio](https://github.com/msantos/stdio) is a control plane for processes.
 
 ```mermaid
 graph LR
@@ -73,9 +73,8 @@ graph LR
 
 ### Argument List
 
-Commands can executed without an intermediary shell process by using
-an argv. Since `$PATH` is not consulted, the path to the executable
-is required:
+Use an argv to execute a command without an intermediary shell
+process. `$PATH` is not consulted: the path to the executable is required.
 
 ```elixir
 iex> Stdio.stream!(["/bin/echo", "test"]) |> Enum.to_list()
@@ -206,8 +205,8 @@ graph LR
 ### FreeBSD Jails
 
 FreeBSD Jails work in a similar way. An argv is used because the process
-is `chroot(2)`'ed in `/rescue`, a directory containing statically linked
-binaries. By default `setuid` and `net` are disabled:
+root directory has been changed to `/rescue`, a directory containing
+statically linked binaries. By default `setuid` and `net` are disabled:
 
 ```elixir
 iex> Stdio.stream!(["./ping", "-c", "1", "8.8.8.8"], Stdio.Jail, path: "/rescue") |> Enum.to_list()
@@ -236,7 +235,7 @@ To run from iex:
 
 ```elixir
 iex> Inetd.Server.start([
-...> %{ip: "::", port: 7070, command: "cat -n"},
+...> %{port: 7070, command: "cat -n"},
 ...> %{ip: "127.0.0.1", port: 7071, command: "stdbuf -o0 tr [A-Z] [a-z]"}
 ...> ])
 ```
