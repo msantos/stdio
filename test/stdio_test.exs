@@ -370,6 +370,12 @@ defmodule StdioTest do
     result = Stdio.stream!("pgrep -x -f \"sleep 7391\"") |> Enum.to_list()
     assert [exit_status: 1] = result
   end
+
+  @tag :linux
+  test "process: no network" do
+    result = Stdio.stream!("ip address show up", Stdio.Process, net: :none) |> Enum.to_list()
+    assert [exit_status: 0] = result
+  end
 end
 
 defmodule StdioReapTest do

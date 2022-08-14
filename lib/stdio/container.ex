@@ -73,22 +73,19 @@ defmodule Stdio.Container do
         path: "/tmp/root"
 
   """
-  def make_chroot_tree!() do
-    make_chroot_tree!(
+  @spec make_chroot_tree!([Path.t()]) :: :ok
+  def make_chroot_tree!(
+        dir \\ ["bin", "sbin", "usr", "lib", "lib64", "opt", "tmp", "home", "proc", "dev"]
+      ) do
+    path =
       Application.get_env(
         :stdio,
         :path,
         Path.join(Stdio.__basedir__(), "root")
       )
-    )
-  end
 
-  @doc """
-  See `make_chroot_tree!/0`
-  """
-  def make_chroot_tree!(path) do
-    ["bin", "sbin", "usr", "lib", "lib64", "opt", "tmp", "home", "proc"]
-    |> Enum.each(fn dir -> File.mkdir_p!(Path.join(path, dir)) end)
+    dir
+    |> Enum.each(fn d -> File.mkdir_p!(Path.join(path, d)) end)
   end
 
   @impl true

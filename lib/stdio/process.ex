@@ -85,17 +85,7 @@ defmodule Stdio.Process do
   def task(_config), do: Stdio.supervisor()
 
   @impl true
-  def init(_config) do
-    fn init ->
-      case :prx.fork(init) do
-        {:ok, sh} ->
-          {:ok, [Stdio.ProcessTree.task(sh)]}
-
-        {:error, _} = error ->
-          error
-      end
-    end
-  end
+  def init(config), do: Stdio.Syscall.os().subprocess(config)
 
   @impl true
   def onerror(_config) do

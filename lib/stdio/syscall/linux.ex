@@ -22,6 +22,28 @@ defmodule Stdio.Syscall.Linux do
   end
 
   @impl true
+  def subprocess(config) do
+    fn init ->
+      result =
+        case Keyword.get(config, :net, :host) do
+          :none ->
+            :prx.clone(init, [:clone_newuser, :clone_newnet])
+
+          _ ->
+            :prx.fork(init)
+        end
+
+      case result do
+        {:ok, sh} ->
+          {:ok, [Stdio.ProcessTree.task(sh)]}
+
+        {:error, _} = error ->
+          error
+      end
+    end
+  end
+
+  @impl true
   def disable_setuid(),
     do: [
       {:prx, :prctl, [:PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0],

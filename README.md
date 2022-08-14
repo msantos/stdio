@@ -102,9 +102,10 @@ iex> Stdio.Procfs.children(25723)
 ```mermaid
 graph LR
     B([beam]) -->S[Supervise]
-    S -.-x I[[/bin/sh]]
-    I -.-x C0[[sleep 131]]
-    I -.-x C1[[sleep 111]]
+    S --- I[[/bin/sh]]
+    I -.- C0[[sleep 131]]
+    I -.- C1[[sleep 111]]
+    I --- C2[[echo $$]]
     S --> C0
     S --> C1
 ```

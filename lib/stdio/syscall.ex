@@ -38,6 +38,12 @@ defmodule Stdio.Syscall do
   """
   @callback set_pdeathsig() :: [Stdio.Op.t()]
 
+  @doc """
+  Fork a subprocess.
+  """
+  @callback subprocess(Keyword.t()) ::
+              (:prx.task() -> {:ok, [Stdio.ProcessTree.t()]} | {:error, :prx.posix()})
+
   @doc false
   defmacro __using__(_) do
     quote location: :keep do
@@ -59,6 +65,9 @@ defmodule Stdio.Syscall do
       def reap(task, pid, signal), do: Stdio.Syscall.reap(task, pid, signal)
 
       @doc false
+      def subprocess(config), do: Stdio.Syscall.subprocess(config)
+
+      @doc false
       def disable_setuid(), do: []
 
       @doc false
@@ -66,6 +75,7 @@ defmodule Stdio.Syscall do
 
       defoverridable setproctitle: 2,
                      subreaper: 1,
+                     subprocess: 1,
                      procfs: 0,
                      reap: 2,
                      reap: 3,
@@ -154,6 +164,23 @@ defmodule Stdio.Syscall do
         |> Enum.each(fn task ->
           Stdio.Process.signal(supervisor, task.pid, signal)
         end)
+    end
+  end
+
+  @doc """
+  The default implementation for `c:subprocess/1`
+
+  `fork(2)` a subprocess from the supervisor.
+  """
+  def subprocess(_config) do
+    fn init ->
+      case :prx.fork(init) do
+        {:ok, sh} ->
+          {:ok, [Stdio.ProcessTree.task(sh)]}
+
+        {:error, _} = error ->
+          error
+      end
     end
   end
 
