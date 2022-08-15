@@ -129,9 +129,7 @@ defmodule Stdio.Process do
       if Keyword.get(config, :setuid, false) do
         []
       else
-        [
-          Stdio.Syscall.os().disable_setuid()
-        ]
+        Stdio.Syscall.os().disable_setuid()
       end,
       Stdio.Syscall.os().set_pdeathsig()
     ]

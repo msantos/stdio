@@ -44,10 +44,10 @@ defmodule Stdio do
 
   ## Overview
 
-  `Stdio` manages system processes. The process standard output
-  (`stdout`) and standard error (`stderr`) are represented as `Stream`'s
-  of `t:stdio/0` tuples.  The process standard input (`stdin`) can be
-  read from a a `binary` stream.
+  `Stdio` manages system processes. The process standard output (`stdout`)
+  and standard error (`stderr`) are represented as `Stream`'s of
+  `t:stdio/0` tuples.  `pipe!/4` reads standard input (`stdin`) from a
+  binary stream.
 
   * system processes run as [foreground
     processes](https://jdebp.uk/FGA/unix-daemon-design-mistakes-to-avoid.html)

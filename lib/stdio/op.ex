@@ -216,7 +216,7 @@ defmodule Stdio.Op do
         seq(task, ops, new_state)
 
       branch when is_list(branch) ->
-        seq(task, branch, state)
+        seq(task, branch ++ ops, state)
 
       {:error, _} when not exit ->
         seq(task, ops, state)
