@@ -4,7 +4,7 @@ defmodule StdioSupervisorTest do
 
   setup do
     Stdio.__setuid__(false)
-    {:ok, supervisor} = Stdio.supervisor()
+    {:ok, supervisor} = Stdio.supervisor(:noshutdown)
 
     on_exit(fn -> :prx.stop(supervisor.init) end)
 

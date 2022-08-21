@@ -291,7 +291,7 @@ defmodule StdioTest do
     end
 
     test "sh: use existing supervisor" do
-      {:ok, supervisor} = Stdio.supervisor()
+      {:ok, supervisor} = Stdio.supervisor(:noshutdown)
 
       result1 =
         Stdio.stream!(

@@ -884,7 +884,7 @@ defmodule Stdio do
 
   ## Examples
 
-      iex> {:ok, supervisor} = Stdio.supervisor()
+      iex> {:ok, supervisor} = Stdio.supervisor(:noshutdown)
       iex> Stdio.stream!("echo test", Stdio.with_supervisor(Stdio.Process, supervisor)) |> Enum.to_list()
       [stdout: "test\n", exit_status: 0]
       iex> Stdio.stream!("echo test", Stdio.with_supervisor(Stdio.Process, supervisor)) |> Enum.to_list()
@@ -905,13 +905,8 @@ defmodule Stdio do
     do:
       Keyword.merge(
         implementation(module),
-        task: taskopt(supervisor)
+        task: fn _config -> {:ok, supervisor} end
       )
-
-  defp taskopt(%Stdio{atexit: :shutdown} = t),
-    do: fn _config -> {:ok, %{t | atexit: :noshutdown}} end
-
-  defp taskopt(%Stdio{} = t), do: fn _config -> {:ok, t} end
 
   # Convert a module implementing the Stdio behaviour into a list
   # of functions with the process lifecycle callbacks.
