@@ -61,6 +61,7 @@ defmodule Stdio.MixProject do
       case :os.type() do
         {:unix, :linux} ->
           [
+            :seccomp,
             Stdio.Jail,
             Stdio.ProcessTree,
             Stdio.Syscall,
@@ -70,6 +71,7 @@ defmodule Stdio.MixProject do
 
         {:unix, :freebsd} ->
           [
+            :seccomp,
             Stdio.Container,
             Stdio.ProcessTree,
             Stdio.Rootless,
@@ -80,6 +82,7 @@ defmodule Stdio.MixProject do
 
         {:unix, :openbsd} ->
           [
+            :seccomp,
             Stdio.Container,
             Stdio.Jail,
             Stdio.ProcessTree,
@@ -91,6 +94,7 @@ defmodule Stdio.MixProject do
 
         _ ->
           [
+            :seccomp,
             Stdio.Container,
             Stdio.Jail,
             Stdio.ProcessTree,
