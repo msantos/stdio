@@ -21,9 +21,9 @@ defmodule Stdio.Rootless do
 
   ## Operations
 
-  > #### Mount Namespace Root (chroot) Directory {: .info}
-  > The chroot directory structure must be created before using this
-  > behaviour.
+  > #### Note {: .info}
+  > To mount a namespaced root (chroot) directory, the chroot directory
+  > structure must be created before using this behaviour.
   >
   > See `Stdio.Container.make_chroot_tree!/0` and
   > `Stdio.Container.make_chroot_tree!/1`.

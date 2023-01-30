@@ -45,8 +45,8 @@ defmodule Stdio do
   ## Overview
 
   `Stdio` manages system processes. The process standard output (`stdout`)
-  and standard error (`stderr`) are represented as `Stream`'s of
-  `t:stdio/0` tuples.  `pipe!/4` reads standard input (`stdin`) from a
+  and standard error (`stderr`) are represented as `Stream`s of
+  `t:stdio/0` tuples. `pipe!/4` reads standard input (`stdin`) from a
   binary stream.
 
   * system processes run as [foreground
@@ -73,7 +73,7 @@ defmodule Stdio do
       iex> ["hello\n"] |> Stdio.pipe!("sed -u 's/hello/bye/'") |> Enum.to_list()
       [stdout: "bye\n", exit_status: 0]
 
-  > #### Unbuffer Output {: .info}
+  > #### Note {: .info}
   > Process output may be buffered. The pipe example
   > unbuffers the output by using the `-u` option of
   > [sed(1)](https://man7.org/linux/man-pages/man1/sed.1.html).
@@ -83,7 +83,7 @@ defmodule Stdio do
   > #### Warning {: .warning}
   > Some behaviours, notably `Stdio.Container` and `Stdio.Jail`,
   > require the system supervisor (not the beam process!) to be running as
-  > the `root` user. See `setuid/0` for instructions on how to set it up.
+  > the `root` user. See `setuid/0` for instructions for set up.
 
   Behaviours may change the root filesystem for the process. The default
   `chroot(2)` directory hierarchy can be created by running:
@@ -212,7 +212,7 @@ defmodule Stdio do
   Function run during stream termination.
 
   `c:onexit/1` runs when the stream is closed. The function can perform
-  clean up and signal any lingering processses. Returns `true` if
+  clean up and signal any lingering processes. Returns `true` if
   subprocesses were found to be running during cleanup.
   """
   @callback onexit(Keyword.t()) :: (Stdio.ProcessTree.t() -> boolean())
@@ -268,7 +268,7 @@ defmodule Stdio do
 
   ## ops
 
-  Provides a sequence of system calls to perform on the subprocess
+  Provides a sequence of system calls to run on the subprocess.
 
   ## onerror
 

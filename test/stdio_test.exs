@@ -448,7 +448,7 @@ defmodule StdioDocTest do
   use ExUnit.Case
 
   # The Stdio doctests contain some Linux specific tests. As a workaround,
-  # seperate the doctests so they can be skipped on other platforms.
+  # separate the doctests so they can be skipped on other platforms.
   @moduletag :linux
   doctest Stdio
 
