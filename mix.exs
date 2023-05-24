@@ -1,7 +1,7 @@
 defmodule Stdio.MixProject do
   use Mix.Project
 
-  @version "0.4.1"
+  @version "0.4.2"
 
   def project do
     [
@@ -40,7 +40,6 @@ defmodule Stdio.MixProject do
 
   defp package do
     [
-      maintainers: ["Michael Santos"],
       licenses: ["ISC"],
       links: %{
         github: "https://github.com/msantos/stdio",
@@ -129,8 +128,8 @@ defmodule Stdio.MixProject do
 
   defp deps do
     [
-      {:alcove, "~> 0.40.5"},
-      {:prx, "~> 0.16.3"},
+      {:alcove, "~> 0.40.6"},
+      {:prx, "~> 0.16.4"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.1", only: [:dev], runtime: false},
       {:ex_doc, "~> 0.28", only: :dev, runtime: false},
