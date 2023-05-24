@@ -133,8 +133,9 @@ iex> Stdio.stream!("ping -c 1 8.8.8.8", Stdio.Process, setuid: true) |> Enum.to_
 ### Privileges
 
 > #### Warning
+>
 > Some behaviours may require running system processes as the root user.
-> 
+>
 > For setup, see
 > [Stdio.setuid/0](https://hexdocs.pm/stdio/Stdio.html#setuid/0).
 
