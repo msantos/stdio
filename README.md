@@ -1,5 +1,8 @@
 # Stdio
 
+[![Package Version](https://img.shields.io/hexpm/v/stdio)](https://hex.pm/packages/stdio)
+[![Hex Docs](https://img.shields.io/badge/hex-docs)](https://hexdocs.pm/stdio/)
+
 Stream standard I/O from system processes.
 
 Reliably reap, restrict and isolate system tasks:
