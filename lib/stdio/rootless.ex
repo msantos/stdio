@@ -225,6 +225,8 @@ defmodule Stdio.Rootless do
       {:chdir, [path]},
       {:pivot_root, [".", "."]},
       {:umount2, [".", [:mnt_detach]]},
+      {:chdir, ["/"]},
+      {:getcwd, []},
       for {resource, rlim} <-
             Keyword.get(config, :rlimit, [
               {:rlimit_core, %{cur: 0, max: 0}}
