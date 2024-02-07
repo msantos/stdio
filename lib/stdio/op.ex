@@ -96,8 +96,6 @@ defmodule Stdio.Op do
   @type option ::
           {:state, boolean()}
           | {:errexit, boolean()}
-          | {:state, boolean()}
-          | {:errexit, boolean()}
           | {:transform, (any() -> :ok | {:ok, state :: any()} | {:error, :prx.posix()})}
 
   @doc """
