@@ -70,7 +70,7 @@ defmodule Stdio.Syscall.Linux do
     ]
 
   @doc """
-  Terminating descendents of a supervisor process
+  Terminate descendents of a supervisor process.
   """
   @impl true
   def reap(%Stdio.ProcessTree{supervisor: %Stdio{init: supervisor}} = pstree, signal),

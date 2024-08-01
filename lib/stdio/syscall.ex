@@ -109,7 +109,7 @@ defmodule Stdio.Syscall do
   def procfs(), do: "/proc"
 
   @doc """
-  Terminating descendents of a supervisor process
+  Terminate descendents of a supervisor process.
   """
   def reap(
         %Stdio.ProcessTree{supervisor: %Stdio{init: supervisor}, pipeline: [%{pid: pid}]},
