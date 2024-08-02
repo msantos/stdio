@@ -624,6 +624,27 @@ defmodule Stdio do
 
   		permit nopass setenv { ENV PS1 SSH_AUTH_SOCK } :elixirgroup
 
+  ### Errors
+
+  #### `shell process exited with reason: {:error, {:error, :eagain}}`
+
+  Check `prx` is executable:
+
+  ```
+  $ ./deps/prx/priv/prx -h
+  prx 0.40.5
+  usage: prx -c <path> [<options>]
+  ```
+
+  #### `error attempting to fork subprocess: insufficient permissions (eperm)`
+
+  Verify `prx` can be run using `sudo`:
+
+  ```
+  $ sudo ./deps/prx/priv/prx -h
+  prx 0.40.5
+  usage: prx -c <path> [<options>]
+  ```
   """
   def setuid(), do: __setuid__(true)
 
