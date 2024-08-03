@@ -31,7 +31,7 @@ graph LR
 ```elixir
 def deps do
   [
-    {:stdio, "~> 0.4.1"}
+    {:stdio, "~> 0.4.3"}
   ]
 end
 ```
@@ -231,10 +231,10 @@ graph LR
 
 ### inetd
 
-An `inetd(8)` server adapted from the [Task and
+The following code is an example of an `inetd(8)` service using forked system
+processes to handle client requests. It is adapted from the [Task and
 gen_tcp](https://elixir-lang.org/getting-started/mix-otp/task-and-gen-tcp.html)
-echo server example in the Elixir documentation to fork() a system
-process.
+echo server in the Elixir documentation.
 
 To run from iex:
 
