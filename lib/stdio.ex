@@ -566,8 +566,8 @@ defmodule Stdio do
     )
   end
 
-  @spec is_setuid() :: boolean
-  defp is_setuid() do
+  @spec setuid?() :: boolean
+  defp setuid?() do
     stat = File.stat!(:prx_drv.progname())
     Bitwise.band(stat.mode, 0o4000) != 0
   end
@@ -655,7 +655,7 @@ defmodule Stdio do
   def __setuid__(false), do: :prx.sudo("")
 
   def __setuid__(true) do
-    case is_setuid() do
+    case setuid?() do
       false ->
         exec =
           case :os.type() do
