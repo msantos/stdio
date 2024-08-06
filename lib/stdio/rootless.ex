@@ -85,33 +85,37 @@ defmodule Stdio.Rootless do
     gid = Keyword.get(config, :gid, uid)
 
     fn init ->
-      ruid = :prx.getuid(init)
-      rgid = :prx.getgid(init)
+      clone(init, uid, gid, flags)
+    end
+  end
 
-      # Fork the container init, cleanup resources on error
-      case :prx.clone(init, flags) do
-        {:ok, cinit} ->
-          with :ok <- write_file(cinit, "/proc/self/uid_map", "#{uid} #{ruid} 1\n"),
-               :ok <- write_file(cinit, "/proc/self/setgroups", "deny"),
-               :ok <- write_file(cinit, "/proc/self/gid_map", "#{gid} #{rgid} 1\n"),
-               {:ok, _} <- Stdio.supervise(cinit) do
-            case :prx.fork(cinit) do
-              {:ok, sh} ->
-                {:ok, [Stdio.ProcessTree.task(cinit), Stdio.ProcessTree.task(sh)]}
+  defp clone(init, uid, gid, flags) do
+    ruid = :prx.getuid(init)
+    rgid = :prx.getgid(init)
 
-              {:error, _} = error ->
-                :prx.stop(cinit)
-                error
-            end
-          else
+    # Fork the container init, cleanup resources on error
+    case :prx.clone(init, flags) do
+      {:ok, cinit} ->
+        with :ok <- write_file(cinit, "/proc/self/uid_map", "#{uid} #{ruid} 1\n"),
+             :ok <- write_file(cinit, "/proc/self/setgroups", "deny"),
+             :ok <- write_file(cinit, "/proc/self/gid_map", "#{gid} #{rgid} 1\n"),
+             {:ok, _} <- Stdio.supervise(cinit) do
+          case :prx.fork(cinit) do
+            {:ok, sh} ->
+              {:ok, [Stdio.ProcessTree.task(cinit), Stdio.ProcessTree.task(sh)]}
+
             {:error, _} = error ->
               :prx.stop(cinit)
               error
           end
+        else
+          {:error, _} = error ->
+            :prx.stop(cinit)
+            error
+        end
 
-        {:error, _} = error ->
-          error
-      end
+      {:error, _} = error ->
+        error
     end
   end
 
