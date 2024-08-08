@@ -135,7 +135,7 @@ iex> Stdio.stream!("ping -c 1 8.8.8.8", Stdio.Process, setuid: true) |> Enum.to_
 
 ### Privileges
 
-> #### Warning
+> [!IMPORTANT]
 >
 > Some behaviours may require running system processes as the root user.
 >
