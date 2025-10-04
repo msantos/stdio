@@ -54,7 +54,7 @@ defmodule Stdio.Procfs do
       l ->
         # Pid:    13028
         # PPid:   13007
-        [k, v] = String.split(l, ":\t", parts: 2, trim: true)
+        [k, v] = String.split(l, ":", parts: 2, trim: true)
         [{String.downcase(k), String.trim(v)}]
     end)
     |> Enum.into(%{})
