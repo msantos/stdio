@@ -11,7 +11,16 @@ defmodule Stdio.Rootless do
   ## Privileges
 
   No extra privileges are required but user namespaces must be enabled
-  on your platform:
+  on your platform.
+
+  ### Ubuntu
+
+  See https://ubuntu.com/blog/ubuntu-23-10-restricted-unprivileged-user-namespaces
+
+      sudo sysctl -w kernel.apparmor_restrict_unprivileged_unconfined=0
+      sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+  ### Ubuntu/Debian (deprecated)
 
       $ sysctl kernel.unprivileged_userns_clone
       kernel.unprivileged_userns_clone = 1
