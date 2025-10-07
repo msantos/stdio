@@ -91,7 +91,6 @@ defmodule Stdio.Procfs do
     end
   end
 
-  @spec walk([String.t()], [t], MapSet.t()) :: [:prx.pid_t()]
   defp walk([], _, found),
     do: MapSet.to_list(found) |> Enum.map(fn pid -> String.to_integer(pid) end)
 
