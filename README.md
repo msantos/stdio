@@ -31,7 +31,7 @@ graph LR
 ```elixir
 def deps do
   [
-    {:stdio, "~> 0.4.4"}
+    {:stdio, "~> 0.4.5"}
   ]
 end
 ```
