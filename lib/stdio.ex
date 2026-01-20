@@ -51,10 +51,8 @@ defmodule Stdio do
 
   * system processes run as [foreground
     processes](https://jdebp.uk/FGA/unix-daemon-design-mistakes-to-avoid.html)
-
   * when the foreground process exits, daemonized and background
     subprocesses are reliably terminated
-
   * system processes are optionally restricted using behaviours such as
     `Stdio.Container`, `Stdio.Rootless` or `Stdio.Jail`
 
@@ -299,7 +297,6 @@ defmodule Stdio do
   namespaces.
 
   * none: process does not have access to network
-
   * host: process shares the host's network namespace
 
   ## environ
@@ -385,13 +382,9 @@ defmodule Stdio do
 
   @typedoc """
   Tuples containing the process stdout, stderr and termination status.
-
   * `:stdout`: standard output
-
   * `:stderr`: standard error
-
   * `:exit_status`: process has exited with status value
-
   * `:termsig`: the termination signal if the process exited due to a signal
   """
   @type stdio ::
@@ -446,11 +439,8 @@ defmodule Stdio do
   ## behaviour
 
   The process behaviour can be customized by passing in:
-
   * a module implementing the callbacks
-
   *  a keyword list with functions of type `t:phase/0`
-
   * a tuple consisting of a module and a list of `t:phase/0` functions
     to override the module callbacks
 
@@ -768,7 +758,6 @@ defmodule Stdio do
       # Flush any remaining events:
       #
       # * pipeline may not consume entire stream (`Enum.take/2`)
-      #
       # * subprocess may have exited (e.g., due to EPERM) during stream
       #   initialization
       {:stdout, _, _} ->
@@ -862,17 +851,11 @@ defmodule Stdio do
   Configure a task to be a system process supervisor.
 
   The task:
-
   * becomes an init process (dependent on platform)
-
   * sets the process name to `supervise`
-
   * enables flow control for child stdout/stderr
-
   * sets the shutdown/reaper behaviour
-
   * terminates child processes if beam exits
-
   * restricts the task to a limited set of calls required for supervision
   """
   @spec supervise(
