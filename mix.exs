@@ -128,8 +128,8 @@ defmodule Stdio.MixProject do
 
   defp deps do
     [
-      {:alcove, "~> 1.0.0"},
-      {:prx, "~> 1.0.0"},
+      {:alcove, "~> 1.0.1"},
+      {:prx, "~> 1.0.1"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.1", only: [:dev], runtime: false},
       {:ex_doc, "~> 0.28", only: :dev, runtime: false},
